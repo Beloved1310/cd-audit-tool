@@ -223,6 +223,47 @@ def crawl_website(url: str) -> CrawlResult:
     )
 
 
+def _to_crawled_page_journey(url: str, title: str, content: str, *, min_words: int = 12) -> CrawledPage | None:
+    """Single-page fetch for journey mode — lower word floor than site-wide crawl."""
+    text = (content or "").strip()
+    wc = len(text.split())
+    if wc < min_words:
+        return None
+    return CrawledPage(
+        url=url or "unknown",
+        title=title or "",
+        content=text,
+        word_count=wc,
+        crawled_at=datetime.utcnow(),
+    )
+
+
+def fetch_single_page(url: str) -> tuple[CrawledPage | None, str | None]:
+    """
+    Load exactly one URL (journey step). Returns ``(page, error)``.
+    Uses WebBaseLoader for a predictable single-page scrape.
+    """
+    target = _normalize_url(url)
+    if not target:
+        return None, "Empty or invalid URL"
+    try:
+        loader = WebBaseLoader(web_paths=[target])
+        docs = loader.load()
+    except Exception as e:  # noqa: BLE001
+        return None, str(e)
+    if not docs:
+        return None, "No content returned"
+    d = docs[0]
+    meta = dict(d.metadata or {})
+    resolved = _doc_url(meta) or target
+    title = _doc_title(meta)
+    content = d.page_content or ""
+    cp = _to_crawled_page_journey(resolved, title, content)
+    if cp is None:
+        return None, "Insufficient extractable text on page (try a different URL or check blocking)"
+    return cp, None
+
+
 def assess_crawl_quality(result: CrawlResult) -> tuple[bool, str]:
     """
     Return ``(is_sufficient, reason)`` where sufficient means
