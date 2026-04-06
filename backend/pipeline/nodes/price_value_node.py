@@ -18,6 +18,7 @@ from backend.pipeline.groq_llm import chat_groq
 from backend.pipeline.prompt_loader import load_prompt_text
 from backend.pipeline.scorer import confidence_level, confidence_note
 from backend.pipeline.state import AuditState
+from backend.security.prompt_injection import sanitise_website_content
 from backend.schemas.audit import ConfidenceLevel, OutcomeScore, RAGRating
 from backend.schemas.llm_io import OutcomeGroqOutput, outcome_from_groq_output
 
@@ -54,7 +55,7 @@ def price_value_node(state: AuditState) -> dict:
     retriever = state["retriever"]
     assert cr is not None
 
-    website_content = build_crawl_markdown(cr, max_chars=10_000)
+    website_content = sanitise_website_content(build_crawl_markdown(cr, max_chars=10_000))
     docs = retriever.invoke(_QUERY)[:4]
     sources = get_sources_from_docs(docs)
     fca_context = truncate_chars(
