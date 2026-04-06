@@ -7,6 +7,7 @@ import hashlib
 import logging
 import os
 import time
+import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
 
@@ -15,6 +16,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
@@ -37,6 +39,21 @@ logger = logging.getLogger(__name__)
 
 _RATE_LIMIT_PER_MINUTE = 5
 _rate_limit_hits: dict[str, list[float]] = {}
+
+
+def _request_id(request: Request) -> str:
+    rid = getattr(request.state, "request_id", None)
+    return str(rid) if rid else "unknown"
+
+
+class RequestIdMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        inbound = (request.headers.get("X-Request-ID") or "").strip()
+        rid = inbound if inbound else uuid.uuid4().hex
+        request.state.request_id = rid
+        resp: Response = await call_next(request)
+        resp.headers.setdefault("X-Request-ID", rid)
+        return resp
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -62,11 +79,16 @@ class AuditRateLimitMiddleware(BaseHTTPMiddleware):
                 return JSONResponse(
                     status_code=429,
                     content={
-                        "detail": (
-                            f"Rate limit exceeded: max {_RATE_LIMIT_PER_MINUTE} "
-                            "requests per minute for /audit"
-                        )
+                        "error": {
+                            "type": "rate_limited",
+                            "message": (
+                                f"Rate limit exceeded: max {_RATE_LIMIT_PER_MINUTE} "
+                                "requests per minute for /audit"
+                            ),
+                        },
+                        "request_id": _request_id(request),
                     },
+                    headers={"X-Request-ID": _request_id(request)},
                 )
             hits.append(now)
             _rate_limit_hits[ip] = hits
@@ -118,6 +140,46 @@ app = FastAPI(
 
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(AuditRateLimitMiddleware)
+app.add_middleware(RequestIdMiddleware)
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    msg = exc.detail if isinstance(exc.detail, str) else "Request failed"
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": {"type": "http_error", "message": msg, "detail": exc.detail},
+            "request_id": _request_id(request),
+        },
+        headers={"X-Request-ID": _request_id(request)},
+    )
+
+
+@app.exception_handler(StarletteHTTPException)
+async def starlette_http_exception_handler(request: Request, exc: StarletteHTTPException):
+    msg = str(exc.detail) if exc.detail is not None else "Request failed"
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": {"type": "http_error", "message": msg, "detail": exc.detail},
+            "request_id": _request_id(request),
+        },
+        headers={"X-Request-ID": _request_id(request)},
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):  # noqa: BLE001
+    logger.exception("Unhandled error request_id=%s", _request_id(request))
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": {"type": "internal_error", "message": "Internal server error"},
+            "request_id": _request_id(request),
+        },
+        headers={"X-Request-ID": _request_id(request)},
+    )
 
 app.add_middleware(
     CORSMiddleware,
