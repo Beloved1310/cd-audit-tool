@@ -11,6 +11,8 @@ from urllib.parse import urljoin, urlparse
 from dotenv import load_dotenv
 from langchain_community.document_loaders import FireCrawlLoader, WebBaseLoader
 
+from backend.security.url_safety import validate_public_url
+
 load_dotenv()
 
 FALLBACK_PATHS: list[str] = [
@@ -195,6 +197,16 @@ def crawl_website(url: str) -> CrawlResult:
             errors=["Empty URL after normalisation"],
         )
 
+    ok, reason = validate_public_url(target)
+    if not ok:
+        return CrawlResult(
+            pages=[],
+            total_words=0,
+            duration_seconds=time.perf_counter() - t0,
+            crawl_method=method,
+            errors=[f"Blocked unsafe URL: {reason}"],
+        )
+
     try:
         pages = _run_firecrawl(target)
     except Exception as e:  # noqa: BLE001
@@ -246,6 +258,9 @@ def fetch_single_page(url: str) -> tuple[CrawledPage | None, str | None]:
     target = _normalize_url(url)
     if not target:
         return None, "Empty or invalid URL"
+    ok, reason = validate_public_url(target)
+    if not ok:
+        return None, f"Blocked unsafe URL: {reason}"
     try:
         loader = WebBaseLoader(web_paths=[target])
         docs = loader.load()
