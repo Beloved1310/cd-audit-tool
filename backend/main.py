@@ -9,7 +9,6 @@ import os
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime
-from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query
@@ -21,6 +20,7 @@ from backend.cache.report_cache import cache_report, clear_cache, get_cached_rep
 from backend.ingestion.fca_loader import get_retriever, load_fca_docs
 from backend.pipeline.graph import run_audit
 from backend.pipeline.journey_runner import JOURNEY_MAX_STEPS, JOURNEY_MIN_STEPS, run_journey
+from backend.security.url_safety import validate_public_url
 from backend.schemas.audit import AuditReport, ComparisonReport, InsufficientDataReport
 from backend.schemas.journey import JourneyReport, JourneyStepInput
 
@@ -88,10 +88,8 @@ class CacheDeleteResponse(BaseModel):
 
 
 def validate_url(url: str) -> bool:
-    p = urlparse(url.strip())
-    if p.scheme not in ("http", "https"):
-        return False
-    return bool(p.netloc)
+    ok, _ = validate_public_url(url)
+    return ok
 
 
 @app.get("/health")
@@ -106,10 +104,11 @@ def health():
 @app.post("/audit")
 def audit(req: AuditRequest):
     url = req.url.strip()
-    if not validate_url(url):
+    ok, reason = validate_public_url(url)
+    if not ok:
         raise HTTPException(
             status_code=422,
-            detail=f"Invalid URL: {url}. Must start with http:// or https://",
+            detail=f"Invalid URL: {url}. {reason}",
         )
 
     cached = get_cached_report(url)
@@ -143,15 +142,17 @@ def audit(req: AuditRequest):
 @app.post("/audit/compare", response_model=ComparisonReport)
 async def audit_compare(req: CompareRequest):
     url_a, url_b = sorted([req.url_a.strip(), req.url_b.strip()])
-    if not validate_url(url_a):
+    ok, reason = validate_public_url(url_a)
+    if not ok:
         raise HTTPException(
             status_code=422,
-            detail=f"Invalid URL: {url_a}. Must start with http:// or https://",
+            detail=f"Invalid URL: {url_a}. {reason}",
         )
-    if not validate_url(url_b):
+    ok, reason = validate_public_url(url_b)
+    if not ok:
         raise HTTPException(
             status_code=422,
-            detail=f"Invalid URL: {url_b}. Must start with http:// or https://",
+            detail=f"Invalid URL: {url_b}. {reason}",
         )
 
     async def run_single(u: str) -> AuditReport | InsufficientDataReport:
@@ -193,10 +194,11 @@ def audit_journey(req: JourneyRequest):
             detail=f"Journey cannot exceed {JOURNEY_MAX_STEPS} steps",
         )
     for s in req.steps:
-        if not validate_url(s.url):
+        ok, reason = validate_public_url(s.url)
+        if not ok:
             raise HTTPException(
                 status_code=422,
-                detail=f"Invalid step URL: {s.url}. Must start with http:// or https://",
+                detail=f"Invalid step URL: {s.url}. {reason}",
             )
     try:
         return run_journey(req.steps, app.state.retriever)
