@@ -35,6 +35,22 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Fail fast on missing secrets/config.
+    # GROQ is required for scoring; Firecrawl is optional (crawler has fallback paths).
+    missing: list[str] = []
+    if not (os.environ.get("GROQ_API_KEY") or "").strip():
+        missing.append("GROQ_API_KEY")
+    if missing:
+        raise RuntimeError(
+            "Missing required environment variable(s): "
+            + ", ".join(missing)
+            + ". Copy .env.example to .env and set your API keys.",
+        )
+    if not (os.environ.get("FIRECRAWL_API_KEY") or "").strip():
+        logger.warning(
+            "FIRECRAWL_API_KEY is not set; crawler will use WebBaseLoader fallback paths.",
+        )
+
     docs_dir = os.environ.get("FCA_DOCS_DIR", "./fca_docs")
     chroma_db = load_fca_docs(docs_dir)
     retriever = get_retriever(chroma_db, k=4)
