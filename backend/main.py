@@ -15,6 +15,9 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
 
 from backend.cache.report_cache import cache_report, clear_cache, get_cached_report
 from backend.ingestion.fca_loader import get_retriever, load_fca_docs
@@ -31,6 +34,43 @@ logger = logging.getLogger(__name__)
 
 # Env contract (python-dotenv): GROQ_API_KEY, FIRECRAWL_API_KEY, CHROMA_PERSIST_DIR,
 # FCA_DOCS_DIR, AUDIT_CACHE_DIR — consumed by ingestion, crawler, cache, Groq client.
+
+_RATE_LIMIT_PER_MINUTE = 5
+_rate_limit_hits: dict[str, list[float]] = {}
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        resp: Response = await call_next(request)
+        resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+        resp.headers.setdefault("X-Frame-Options", "DENY")
+        resp.headers.setdefault("Referrer-Policy", "no-referrer")
+        return resp
+
+
+class AuditRateLimitMiddleware(BaseHTTPMiddleware):
+    """Very small in-memory rate limiter for POST /audit only."""
+
+    async def dispatch(self, request: Request, call_next):
+        if request.method == "POST" and request.url.path == "/audit":
+            ip = (request.client.host if request.client else "unknown") or "unknown"
+            now = time.time()
+            window_start = now - 60.0
+            hits = _rate_limit_hits.get(ip) or []
+            hits = [t for t in hits if t >= window_start]
+            if len(hits) >= _RATE_LIMIT_PER_MINUTE:
+                return JSONResponse(
+                    status_code=429,
+                    content={
+                        "detail": (
+                            f"Rate limit exceeded: max {_RATE_LIMIT_PER_MINUTE} "
+                            "requests per minute for /audit"
+                        )
+                    },
+                )
+            hits.append(now)
+            _rate_limit_hits[ip] = hits
+        return await call_next(request)
 
 
 @asynccontextmanager
@@ -75,6 +115,9 @@ app = FastAPI(
     description="FCA Consumer Duty (FG22/5) crawl + RAG audit backend",
     lifespan=lifespan,
 )
+
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(AuditRateLimitMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
