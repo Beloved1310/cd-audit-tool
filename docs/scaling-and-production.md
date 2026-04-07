@@ -21,7 +21,7 @@ Move `POST /audit` from “do all work inline” to:
 4. worker(s) execute crawl + scoring
 5. client polls `GET /audit/jobs/{id}` or uses SSE/webhooks
 
-Why:
+Rationale:
 
 - protects the API from long-running requests
 - makes concurrency and retry policies explicit

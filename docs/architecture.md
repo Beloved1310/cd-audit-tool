@@ -1,9 +1,9 @@
 # Architecture
 
-This document answers:
+This document covers:
 
 - why the system is designed the way it is
-- the major components and data flow
+- the main components and data flow
 - where to look in the codebase for each part
 
 ## Overview
@@ -143,7 +143,7 @@ This section records my engineering rationale: goal → constraints → options 
 - **Goal**: ensure regulatory citations are correct, traceable, and consistent with the evidence and the scoring rubric.
 - **Constraints**:
   - ingestion quality matters more than ingestion quantity (chunking, labelling, metadata, and retrieval behaviour)
-  - the more documents added, the more the validation retrieval precision to avoid citing irrelevant or outdated material
+  - as the corpus grows, I must validate retrieval precision to avoid citing irrelevant or outdated material
   - I want a small, defensible baseline that is easy to keep current
 - **Options**:
   - ingest the full list of FCA documents up front (guidance, good practice reports, portfolio letters, thematic reviews)

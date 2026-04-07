@@ -36,9 +36,9 @@ Run-to-run checks on a fixed corpus:
 
 Checks:
 
-- are key page types found (product pages, pricing, complaints, accessibility)
-- do I exit as insufficient data when I should
-- do I miss evidence due to crawl discovery gaps
+- are key page types found (product pages, pricing, complaints, accessibility)?
+- do I exit as insufficient data when I should?
+- do I miss evidence due to crawl discovery gaps?
 
 ### Error handling
 
