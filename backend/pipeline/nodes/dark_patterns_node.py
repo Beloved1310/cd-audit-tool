@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
 from backend.pipeline.content_builder import build_crawl_markdown
-from backend.pipeline.groq_llm import chat_groq
+from backend.pipeline.groq_llm import chat_groq, invoke_groq
 from backend.pipeline.state import AuditState
 from backend.schemas.audit import DarkPattern
 
@@ -60,7 +60,7 @@ def dark_patterns_node(state: AuditState) -> dict:
     prompt = _DARK_PROMPT.format(content=content) + f"\n\nSchema:\n{schema}"
 
     try:
-        result = structured.invoke(prompt)
+        result = invoke_groq(structured, prompt)
         if not isinstance(result, DarkPatternDetectionResult):
             result = DarkPatternDetectionResult.model_validate(result)
         patterns = list(result.patterns_found)

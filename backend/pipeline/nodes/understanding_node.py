@@ -14,7 +14,7 @@ from backend.pipeline.content_builder import (
     truncate_chars,
 )
 from backend.pipeline.llm_errors import friendly_eval_error
-from backend.pipeline.groq_llm import chat_groq
+from backend.pipeline.groq_llm import chat_groq, invoke_groq
 from backend.pipeline.prompt_loader import load_prompt_text
 from backend.pipeline.scorer import confidence_level, confidence_note
 from backend.pipeline.state import AuditState
@@ -74,7 +74,7 @@ def understanding_node(state: AuditState) -> dict:
     llm = chat_groq()
     structured = llm.with_structured_output(OutcomeGroqOutput)
     try:
-        raw = structured.invoke(formatted_prompt)
+        raw = invoke_groq(structured, formatted_prompt)
         if not isinstance(raw, OutcomeGroqOutput):
             raw = OutcomeGroqOutput.model_validate(raw)
         result = outcome_from_groq_output(raw)

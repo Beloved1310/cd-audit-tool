@@ -11,6 +11,8 @@ from langchain_groq import ChatGroq
 from pydantic import BaseModel
 from typing import TypeVar
 
+from backend.pipeline.groq_llm import chat_groq as _core_chat_groq, invoke_groq
+
 TModel = TypeVar("TModel", bound=BaseModel)
 
 load_dotenv()
@@ -26,11 +28,7 @@ def chat_groq() -> ChatGroq:
     key = os.environ.get("GROQ_API_KEY")
     if not key:
         raise RuntimeError("GROQ_API_KEY is not set")
-    return ChatGroq(
-        model="llama-3.3-70b-versatile",
-        temperature=0,
-        api_key=key,
-    )
+    return _core_chat_groq()
 
 
 def invoke_structured(
@@ -43,7 +41,7 @@ def invoke_structured(
     msg = HumanMessage(
         content=f"{system_hint}\n\n---\n\n{user_content}" if system_hint else user_content
     )
-    out = llm.invoke([msg])
+    out = invoke_groq(llm, [msg])
     if isinstance(out, model_cls):
         return out
     if isinstance(out, dict):

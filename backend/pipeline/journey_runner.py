@@ -10,7 +10,7 @@ from typing import Any
 from backend.crawler.site_crawler import fetch_single_page
 from backend.ingestion.fca_loader import get_sources_from_docs
 from backend.pipeline.content_builder import format_fca_sources_numbered, truncate_chars
-from backend.pipeline.groq_llm import chat_groq
+from backend.pipeline.groq_llm import chat_groq, invoke_groq
 from backend.pipeline.llm_errors import friendly_eval_error
 from backend.schemas.audit import DarkPattern
 from backend.schemas.journey import (
@@ -107,7 +107,7 @@ def _analyse_step_llm(
     llm = chat_groq()
     structured = llm.with_structured_output(JourneyStepLLMOutput)
     try:
-        out = structured.invoke(prompt)
+        out = invoke_groq(structured, prompt)
         if not isinstance(out, JourneyStepLLMOutput):
             out = JourneyStepLLMOutput.model_validate(out)
     except Exception as e:  # noqa: BLE001
