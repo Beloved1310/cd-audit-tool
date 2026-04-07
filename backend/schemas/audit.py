@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Literal, Self
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, computed_field, model_validator
 
 
 class RAGRating(str, Enum):
@@ -118,6 +118,18 @@ class VulnerabilityGap(BaseModel):
 class OutcomeScore(BaseModel):
     """Scores and narrative for one Consumer Duty outcome (e.g. Understanding)."""
 
+    assessment_scope: Literal["public_website_only", "internal_and_public"] = Field(
+        default="public_website_only",
+        description=(
+            "Evidence basis for this outcome. "
+            "'public_website_only' means scored only from crawled public pages. "
+            "'internal_and_public' is reserved for future firm-data inputs."
+        ),
+    )
+    scope_note: str = Field(
+        default="",
+        description="Short note describing scope limitations (for example missing internal firm data).",
+    )
     outcome_name: str
     rating: RAGRating = Field(
         description="Always derived from score in validation (input value is overwritten).",
@@ -147,6 +159,7 @@ class OutcomeScore(BaseModel):
 class AuditReport(BaseModel):
     """Full result of auditing one URL (complete, insufficient data, or crawl error)."""
 
+    insufficient_data: bool = False
     url: str
     audited_at: datetime
     status: AuditStatus
@@ -174,7 +187,10 @@ class AuditReport(BaseModel):
     )
 
     def compute_overall(self) -> None:
-        """Set overall_score (50/50 Understanding vs Support) and overall_rating.
+        """Set overall_score (mean of four outcomes) and overall_rating.
+
+        Outcomes: Products & Services, Price & Value, Consumer Understanding,
+        Consumer Support (PRIN 2A.2–2A.5).
 
         Raises:
             ValueError: If status is not COMPLETE or required outcomes are missing.
@@ -182,61 +198,62 @@ class AuditReport(BaseModel):
         if self.status != AuditStatus.COMPLETE:
             raise ValueError("compute_overall() requires status COMPLETE")
         by_name = {o.outcome_name: o for o in self.outcomes}
-        u = by_name.get("Consumer Understanding")
-        s = by_name.get("Consumer Support")
-        if u is None or s is None:
-            raise ValueError(
-                "compute_overall() requires outcomes 'Consumer Understanding' and 'Consumer Support'",
-            )
-        self.overall_score = int(round((u.score + s.score) / 2))
+        required = (
+            "Products & Services",
+            "Price & Value",
+            "Consumer Understanding",
+            "Consumer Support",
+        )
+        scores: list[int] = []
+        for name in required:
+            o = by_name.get(name)
+            if o is None:
+                raise ValueError(
+                    "compute_overall() requires outcomes "
+                    + ", ".join(f"'{n}'" for n in required),
+                )
+            scores.append(o.score)
+        self.overall_score = int(round(sum(scores) / len(scores)))
         self.overall_rating = rating_from_score_10(self.overall_score)
 
 
+class InsufficientDataReport(BaseModel):
+    """Audit stopped early (crawl failure or insufficient crawl depth)."""
+
+    insufficient_data: Literal[True] = True
+    url: str
+    audited_at: datetime
+    status: AuditStatus
+    reason: str = Field(
+        description="Human-readable reason (validation failure, crawl error, etc.).",
+    )
+    pages_crawled: list[str] = Field(default_factory=list)
+    total_words_analysed: int = Field(ge=0, default=0)
+    crawl_duration_seconds: float = Field(ge=0, default=0.0)
+    pipeline_duration_seconds: float = Field(ge=0, default=0.0)
+
+
 class ComparisonReport(BaseModel):
-    """Side-by-side comparison of two completed audits for the same criteria."""
+    """Side-by-side comparison of two audit runs (complete or early exit)."""
 
     url_a: str
     url_b: str
-    compared_at: datetime
-    report_a: AuditReport
-    report_b: AuditReport
-    winner_by_outcome: dict[str, str] = Field(
-        default_factory=dict,
-        description='Maps outcome_name to "url_a", "url_b", or "tied".',
-    )
-    overall_winner: str | None = Field(
-        default=None,
-        description='One of "url_a", "url_b", "tied", or None if either audit incomplete.',
-    )
+    hash_a: str
+    hash_b: str
+    report_a: AuditReport | InsufficientDataReport
+    report_b: AuditReport | InsufficientDataReport
+    generated_at_iso: str
 
-    def compute_comparison(self) -> None:
-        """Fill winner_by_outcome and overall_winner from paired outcome scores."""
-        ra, rb = self.report_a, self.report_b
-        aw: dict[str, str] = {}
+    @computed_field
+    def both_sufficient(self) -> bool:
+        """True when both reports are full :class:`AuditReport` with status COMPLETE."""
+        a, b = self.report_a, self.report_b
+        return (
+            isinstance(a, AuditReport)
+            and isinstance(b, AuditReport)
+            and a.status == AuditStatus.COMPLETE
+            and b.status == AuditStatus.COMPLETE
+        )
 
-        by_a = {o.outcome_name: o for o in ra.outcomes}
-        by_b = {o.outcome_name: o for o in rb.outcomes}
-        for name in sorted(set(by_a) & set(by_b)):
-            sa, sb = by_a[name].score, by_b[name].score
-            if sa > sb:
-                aw[name] = "url_a"
-            elif sb > sa:
-                aw[name] = "url_b"
-            else:
-                aw[name] = "tied"
-        self.winner_by_outcome = aw
 
-        if (
-            ra.status == AuditStatus.COMPLETE
-            and rb.status == AuditStatus.COMPLETE
-            and ra.overall_score is not None
-            and rb.overall_score is not None
-        ):
-            if ra.overall_score > rb.overall_score:
-                self.overall_winner = "url_a"
-            elif rb.overall_score > ra.overall_score:
-                self.overall_winner = "url_b"
-            else:
-                self.overall_winner = "tied"
-        else:
-            self.overall_winner = None
+AuditResponse = AuditReport | InsufficientDataReport
