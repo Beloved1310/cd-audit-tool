@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply min-h-screen bg-app-bg text-zinc-100 antialiased;
+    background-image: radial-gradient(
+      ellipse 120% 80% at 50% -20%,
+      rgb(6 78 59 / 0.35),
+      transparent 55%
+    );
+  }
+}
+
+@media print {
+  body {
+    background: white !important;
+    background-image: none !important;
+    color: #111 !important;
+  }
+  button {
+    display: none !important;
+  }
+  details {
+    display: block !important;
+  }
+}
