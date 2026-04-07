@@ -13,6 +13,17 @@ Submit a single public website URL and receive a structured Consumer Duty report
 - findings with severity, verbatim evidence, page URL, and FCA reference
 - outcome-specific recommendations
 
+#### The four outcomes (PRIN 2A.2–2A.5)
+
+The report covers the four FCA Consumer Duty outcomes:
+
+- **Products & Services (PRIN 2A.2)**: product and service design/distribution signals, target market framing, and whether material risks and limitations are signposted.
+- **Price & Value (PRIN 2A.3)**: pricing/charges discoverability and clarity, and whether value framing is consistent with the price information presented.
+- **Consumer Understanding (PRIN 2A.4)**: whether communications support informed decisions (clarity, layering, balanced risk/benefit, and decision support cues).
+- **Consumer Support (PRIN 2A.5)**: whether support is easy to find and effective (complaints, ease of exit, vulnerable customer support, and accessibility/alternative formats).
+
+Where appropriate, **Products & Services** and **Price & Value** are treated as **public-evidence-only** and flagged as partial where internal firm data would be required for a complete view.
+
 ### Two-site comparison
 
 Compare two websites side-by-side to see how their outcome scores and findings differ. This is intended for:
