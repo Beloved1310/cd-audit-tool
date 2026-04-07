@@ -3,20 +3,21 @@
 from __future__ import annotations
 
 import logging
-import os
 import random
 import time
 from typing import Any
 
-from dotenv import load_dotenv
 import httpx
 from groq import RateLimitError
 from langchain_core.runnables import Runnable
 from langchain_groq import ChatGroq
 
-load_dotenv()
+from backend.config import get_settings
 
 logger = logging.getLogger(__name__)
+
+
+_SETTINGS = get_settings()
 
 
 def chat_groq() -> ChatGroq:
@@ -24,7 +25,7 @@ def chat_groq() -> ChatGroq:
     return ChatGroq(
         model="llama-3.3-70b-versatile",
         temperature=0,
-        groq_api_key=os.environ.get("GROQ_API_KEY"),
+        groq_api_key=_SETTINGS.groq_api_key or None,
     )
 
 
@@ -54,7 +55,7 @@ def invoke_groq(
     runnable: Runnable,
     input: Any,
     *,
-    max_attempts: int = 8,
+    max_attempts: int = 3,
     base_delay_s: float = 1.25,
 ) -> Any:
     """Run ``runnable.invoke`` with exponential backoff on Groq 429 rate limits.
