@@ -60,6 +60,8 @@ Frontend:
 Place FCA PDFs in `fca_docs/` then run:
   python -m backend.ingestion.fca_loader
 
+This repository includes a small FCA PDF corpus under `fca_docs/` to support offline reproducibility. You can add, remove, or replace documents to suit the product type (for example relevant good practice reports and portfolio letters); if you change the document set, re-run ingestion to rebuild the index.
+
 FG22/5 is the minimum recommended document. For better grounding, add the relevant Consumer Duty good practice reports and any FCA portfolio letters that apply to the product type.
 
 ## Run
