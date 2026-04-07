@@ -51,7 +51,7 @@ class CrawledPage:
 
     url: str
     title: str
-    content: str  # clean text, markdown format
+    content: str 
     word_count: int
     crawled_at: datetime
 
@@ -162,7 +162,7 @@ def _run_webbase_fallback(base_url: str, errors: list[str]) -> list[CrawledPage]
         try:
             loader = WebBaseLoader(web_paths=[full])
             docs = loader.load()
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:  
             errors.append(f"{full}: {e!s}")
             continue
         for d in docs:
@@ -264,7 +264,7 @@ def fetch_single_page(url: str) -> tuple[CrawledPage | None, str | None]:
     try:
         loader = WebBaseLoader(web_paths=[target])
         docs = loader.load()
-    except Exception as e:  # noqa: BLE001
+    except Exception as e: 
         return None, str(e)
     if not docs:
         return None, "No content returned"

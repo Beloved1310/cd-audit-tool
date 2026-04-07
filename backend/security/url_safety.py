@@ -38,8 +38,7 @@ def validate_public_url(url: str) -> tuple[bool, str]:
 
     Returns (ok, reason). If ok is True, reason is "".
 
-    Allow escape hatch for local development:
-    - set ALLOW_PRIVATE_URLS=true to bypass SSRF protections.
+    ALLOW_PRIVATE_URLS can be enabled for controlled environments to bypass SSRF protections.
     """
 
     if _env_flag("ALLOW_PRIVATE_URLS"):

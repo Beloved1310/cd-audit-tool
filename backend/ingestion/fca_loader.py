@@ -73,7 +73,7 @@ def _delete_collection() -> None:
             embedding_function=emb,
             persist_directory=persist,
         ).delete_collection()
-    except Exception:  # noqa: BLE001
+    except Exception:  
         pass
 
 

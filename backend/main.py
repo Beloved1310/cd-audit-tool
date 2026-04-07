@@ -40,8 +40,8 @@ load_dotenv()
 configure_logging()
 logger = logging.getLogger(__name__)
 
-# Env contract (python-dotenv): GROQ_API_KEY, FIRECRAWL_API_KEY, CHROMA_PERSIST_DIR,
-# FCA_DOCS_DIR, AUDIT_CACHE_DIR — consumed by ingestion, crawler, cache, Groq client.
+# Environment variables consumed by ingestion, crawler, cache, and LLM client:
+# GROQ_API_KEY, FIRECRAWL_API_KEY, CHROMA_PERSIST_DIR, FCA_DOCS_DIR, AUDIT_CACHE_DIR.
 
 _RATE_LIMIT_PER_MINUTE = 5
 _rate_limit_hits: dict[str, list[float]] = {}
@@ -123,8 +123,8 @@ class AuditRateLimitMiddleware(BaseHTTPMiddleware):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Fail fast on missing secrets/config.
-    # GROQ is required for scoring; Firecrawl is optional (crawler has fallback paths).
+    # Fail fast on missing required configuration.
+    # Groq is required for scoring; Firecrawl is optional (crawler has fallback paths).
     missing: list[str] = []
     if not (os.environ.get("GROQ_API_KEY") or "").strip():
         missing.append("GROQ_API_KEY")
@@ -132,7 +132,7 @@ async def lifespan(app: FastAPI):
         raise RuntimeError(
             "Missing required environment variable(s): "
             + ", ".join(missing)
-            + ". Copy .env.example to .env and set your API keys.",
+            + ". See .env.example for required configuration keys.",
         )
     if not (os.environ.get("FIRECRAWL_API_KEY") or "").strip():
         logger.warning(

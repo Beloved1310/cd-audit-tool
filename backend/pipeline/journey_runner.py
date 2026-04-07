@@ -116,7 +116,7 @@ def _analyse_step_llm(
             step_summary=friendly_eval_error(e),
         )
 
-    # Enforce page_url on dark patterns
+    # Ensure dark patterns always reference the current step URL.
     fixed_dps: list[DarkPattern] = []
     for dp in out.dark_patterns:
         fixed_dps.append(
