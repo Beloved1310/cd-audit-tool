@@ -47,6 +47,13 @@ export interface VulnerabilityGap {
   fca_reference: string;
 }
 
+export interface Page<T> {
+  items: T[];
+  page: number;
+  page_size: number;
+  total: number;
+}
+
 export interface OutcomeScore {
   assessment_scope: AssessmentScope;
   scope_note: string;

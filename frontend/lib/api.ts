@@ -1,4 +1,11 @@
-import type { AuditResponse, ComparisonReport } from "@/types/audit";
+import type {
+  AuditResponse,
+  ComparisonReport,
+  DarkPattern,
+  Finding,
+  Page,
+  VulnerabilityGap,
+} from "@/types/audit";
 import type { JourneyReport, JourneyStepInput } from "@/types/journey";
 
 const API_BASE =
@@ -59,6 +66,53 @@ export async function fetchCachedReport(url: string): Promise<AuditResponse> {
     throw await parseApiError(res);
   }
   return res.json() as Promise<AuditResponse>;
+}
+
+export async function fetchFindingsPage(params: {
+  url: string;
+  outcome: string;
+  page: number;
+  page_size: number;
+}): Promise<Page<Finding>> {
+  const q = new URLSearchParams({
+    url: params.url,
+    outcome: params.outcome,
+    page: String(params.page),
+    page_size: String(params.page_size),
+  });
+  const res = await fetch(`${API_BASE}/audit/report/findings?${q}`);
+  if (!res.ok) throw await parseApiError(res);
+  return res.json() as Promise<Page<Finding>>;
+}
+
+export async function fetchDarkPatternsPage(params: {
+  url: string;
+  page: number;
+  page_size: number;
+}): Promise<Page<DarkPattern>> {
+  const q = new URLSearchParams({
+    url: params.url,
+    page: String(params.page),
+    page_size: String(params.page_size),
+  });
+  const res = await fetch(`${API_BASE}/audit/report/dark-patterns?${q}`);
+  if (!res.ok) throw await parseApiError(res);
+  return res.json() as Promise<Page<DarkPattern>>;
+}
+
+export async function fetchVulnerabilityGapsPage(params: {
+  url: string;
+  page: number;
+  page_size: number;
+}): Promise<Page<VulnerabilityGap>> {
+  const q = new URLSearchParams({
+    url: params.url,
+    page: String(params.page),
+    page_size: String(params.page_size),
+  });
+  const res = await fetch(`${API_BASE}/audit/report/vulnerability-gaps?${q}`);
+  if (!res.ok) throw await parseApiError(res);
+  return res.json() as Promise<Page<VulnerabilityGap>>;
 }
 
 /** Load comparison when both single-URL audits are already cached (sorted query matches POST /audit/compare). */

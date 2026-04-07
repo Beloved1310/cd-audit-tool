@@ -1,7 +1,9 @@
 import type { Finding, OutcomeScore } from "@/types/audit";
+import { useEffect, useMemo, useState } from "react";
 import { ConfidenceBadge } from "./ConfidenceBadge";
 import { CriteriaBreakdown } from "./CriteriaBreakdown";
 import { RAGBadge } from "./RAGBadge";
+import { fetchFindingsPage, type ApiErrorInfo } from "@/lib/api";
 
 const linkClass =
   "text-emerald-400 underline decoration-emerald-500/40 underline-offset-2 hover:text-emerald-300";
@@ -31,6 +33,55 @@ export function OutcomeCard({ outcome }: { outcome: OutcomeScore }) {
     outcome.assessment_scope === "public_website_only" &&
     (outcome.outcome_name === "Products & Services" ||
       outcome.outcome_name === "Price & Value");
+
+  const reportUrl =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("url")?.trim() ?? ""
+      : "";
+
+  const totalFindings = outcome.findings.length;
+  const pageSize = 5;
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(totalFindings / pageSize)),
+    [totalFindings],
+  );
+  const [findingsOpen, setFindingsOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const [items, setItems] = useState<Finding[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<ApiErrorInfo | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!findingsOpen) return;
+    if (!reportUrl) return;
+    if (totalFindings <= pageSize) {
+      setItems(outcome.findings);
+      return;
+    }
+    void (async () => {
+      setLoading(true);
+      setErr(null);
+      try {
+        const data = await fetchFindingsPage({
+          url: reportUrl,
+          outcome: outcome.outcome_name,
+          page,
+          page_size: pageSize,
+        });
+        if (cancelled) return;
+        setItems(data.items);
+      } catch (e) {
+        if (cancelled) return;
+        setErr(e as ApiErrorInfo);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [findingsOpen, page, reportUrl, outcome.outcome_name, totalFindings, outcome.findings]);
 
   return (
     <article className="rounded-xl border border-app-border bg-app-surface/80 p-5 shadow-lg shadow-black/20 backdrop-blur-sm">
@@ -101,13 +152,23 @@ export function OutcomeCard({ outcome }: { outcome: OutcomeScore }) {
         </div>
       </details>
 
-      {outcome.findings.length > 0 ? (
-        <details className="mt-4">
+      {totalFindings > 0 ? (
+        <details className="mt-4" onToggle={(e) => setFindingsOpen((e.target as HTMLDetailsElement).open)}>
           <summary className="cursor-pointer list-none text-sm font-medium text-emerald-400/90 marker:content-none [&::-webkit-details-marker]:hidden">
-            Findings ({outcome.findings.length})
+            Findings ({totalFindings})
           </summary>
+          {loading ? (
+            <p className="mt-3 text-sm text-app-muted" aria-live="polite">
+              Loading findings…
+            </p>
+          ) : null}
+          {err ? (
+            <p className="mt-3 text-sm text-red-300" role="alert">
+              {err.message || "Could not load findings"}
+            </p>
+          ) : null}
           <ul className="mt-3 space-y-4">
-            {outcome.findings.map((f, i) => (
+            {(items.length > 0 ? items : outcome.findings.slice(0, pageSize)).map((f, i) => (
               <li
                 key={i}
                 className="border-b border-app-border pb-4 last:border-0"
@@ -137,6 +198,29 @@ export function OutcomeCard({ outcome }: { outcome: OutcomeScore }) {
               </li>
             ))}
           </ul>
+          {totalFindings > pageSize ? (
+            <div className="mt-3 flex items-center justify-between gap-3 text-xs text-app-muted">
+              <button
+                type="button"
+                className="rounded-md border border-app-border bg-app-raised px-3 py-1.5 text-zinc-200 disabled:opacity-50"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1 || loading}
+              >
+                Prev
+              </button>
+              <span>
+                Page {page} / {totalPages}
+              </span>
+              <button
+                type="button"
+                className="rounded-md border border-app-border bg-app-raised px-3 py-1.5 text-zinc-200 disabled:opacity-50"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages || loading}
+              >
+                Next
+              </button>
+            </div>
+          ) : null}
         </details>
       ) : null}
 

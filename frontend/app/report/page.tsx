@@ -14,6 +14,8 @@ import {
   type OutcomeScore,
 } from "@/types/audit";
 import { fetchCachedReport, type ApiErrorInfo } from "@/lib/api";
+import { fetchDarkPatternsPage, fetchVulnerabilityGapsPage } from "@/lib/api";
+import type { DarkPattern, Page, VulnerabilityGap } from "@/types/audit";
 
 const linkClass =
   "text-emerald-400 underline decoration-emerald-500/50 underline-offset-2 hover:text-emerald-300";
@@ -41,6 +43,10 @@ function ReportInner() {
 
   const [raw, setRaw] = useState<AuditResponse | null | undefined>(undefined);
   const [fetchError, setFetchError] = useState<ApiErrorInfo | null>(null);
+  const [dpPage, setDpPage] = useState<Page<DarkPattern> | null>(null);
+  const [dpLoading, setDpLoading] = useState(false);
+  const [gapPage, setGapPage] = useState<Page<VulnerabilityGap> | null>(null);
+  const [gapLoading, setGapLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -97,6 +103,47 @@ function ReportInner() {
       setRaw(null);
     }
   }, [urlParam]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!urlParam) return;
+    if (!raw || raw === null) return;
+    if ("insufficient_data" in raw && raw.insufficient_data) return;
+    const report = raw as AuditReport;
+    if (report.status !== "complete") return;
+
+    void (async () => {
+      try {
+        setDpLoading(true);
+        const data = await fetchDarkPatternsPage({
+          url: urlParam,
+          page: 1,
+          page_size: 10,
+        });
+        if (!cancelled) setDpPage(data);
+      } finally {
+        if (!cancelled) setDpLoading(false);
+      }
+    })();
+
+    void (async () => {
+      try {
+        setGapLoading(true);
+        const data = await fetchVulnerabilityGapsPage({
+          url: urlParam,
+          page: 1,
+          page_size: 10,
+        });
+        if (!cancelled) setGapPage(data);
+      } finally {
+        if (!cancelled) setGapLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [urlParam, raw]);
 
   if (raw === undefined) {
     return <p className="text-app-muted">Loading…</p>;
@@ -240,20 +287,24 @@ function ReportInner() {
 
       <section>
         <h2 className="mb-3 text-lg font-semibold text-zinc-100">Dark Patterns</h2>
-        <DarkPatternList patterns={report.dark_patterns} />
+        {dpLoading && !dpPage ? (
+          <p className="text-sm text-app-muted">Loading…</p>
+        ) : (
+          <DarkPatternList patterns={dpPage?.items ?? report.dark_patterns} />
+        )}
       </section>
 
       <section>
         <h2 className="mb-3 text-lg font-semibold text-zinc-100">
           Vulnerability Gaps
         </h2>
-        {report.vulnerability_gaps.length === 0 ? (
+        {(gapPage?.total ?? report.vulnerability_gaps.length) === 0 ? (
           <p className="rounded-lg border border-emerald-500/25 bg-emerald-950/30 px-3 py-2 text-emerald-300">
             ✓ No vulnerability gaps detected
           </p>
         ) : (
           <ul className="space-y-4">
-            {report.vulnerability_gaps.map((g, i) => (
+            {(gapPage?.items ?? report.vulnerability_gaps).map((g, i) => (
               <li key={i} className="rounded-lg border border-app-border bg-app-raised/50 p-4">
                 <h3 className="font-semibold text-zinc-100">
                   {titleizeGap(g.gap_type)}
