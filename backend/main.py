@@ -12,6 +12,8 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 
 from dotenv import load_dotenv
+import httpx
+from backend.config import get_settings
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -22,6 +24,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from backend.cache.report_cache import cache_report, clear_cache, get_cached_report
+from backend.pipeline.versioning import compute_pipeline_version
 from backend.ingestion.fca_loader import get_retriever, load_fca_docs
 from backend.observability import (
     configure_logging,
@@ -33,15 +36,25 @@ from backend.pipeline.graph import run_audit
 from backend.pipeline.journey_runner import JOURNEY_MAX_STEPS, JOURNEY_MIN_STEPS, run_journey
 from backend.security.url_safety import validate_public_url
 from backend.schemas.audit import AuditReport, ComparisonReport, InsufficientDataReport
+from backend.schemas.audit import DarkPattern, Finding, VulnerabilityGap
+from backend.schemas.pagination import Page
 from backend.schemas.journey import JourneyReport, JourneyStepInput
+from backend.util.url_norm import canonical_url
+from backend.app.services.audit_service import (
+    get_or_run_audit,
+    get_or_run_compare,
+    get_or_run_journey,
+)
 
 load_dotenv()
+_SETTINGS = get_settings()
 
 configure_logging()
 logger = logging.getLogger(__name__)
 
-# Environment variables consumed by ingestion, crawler, cache, and LLM client:
-# GROQ_API_KEY, FIRECRAWL_API_KEY, CHROMA_PERSIST_DIR, FCA_DOCS_DIR, AUDIT_CACHE_DIR.
+# Environment variables consumed by configuration/pipeline:
+# GROQ_API_KEY, FIRECRAWL_API_KEY, FCA_DOCS_DIR, CHROMA_PERSIST_DIR, AUDIT_CACHE_DIR,
+# CRAWL_PAGE_LIMIT, MAX_PAGE_CHARS, MAX_TOTAL_WORDS, ALLOW_PRIVATE_URLS, USER_AGENT.
 
 _RATE_LIMIT_PER_MINUTE = 5
 _rate_limit_hits: dict[str, list[float]] = {}
@@ -126,7 +139,7 @@ async def lifespan(app: FastAPI):
     # Fail fast on missing required configuration.
     # Groq is required for scoring; Firecrawl is optional (crawler has fallback paths).
     missing: list[str] = []
-    if not (os.environ.get("GROQ_API_KEY") or "").strip():
+    if not _SETTINGS.groq_api_key.strip():
         missing.append("GROQ_API_KEY")
     if missing:
         raise RuntimeError(
@@ -134,15 +147,21 @@ async def lifespan(app: FastAPI):
             + ", ".join(missing)
             + ". See .env.example for required configuration keys.",
         )
-    if not (os.environ.get("FIRECRAWL_API_KEY") or "").strip():
+    if not _SETTINGS.firecrawl_api_key.strip():
         logger.warning(
             "FIRECRAWL_API_KEY is not set; crawler will use WebBaseLoader fallback paths.",
         )
 
-    docs_dir = os.environ.get("FCA_DOCS_DIR", "./fca_docs")
+    docs_dir = str(_SETTINGS.fca_docs_dir)
     chroma_db = load_fca_docs(docs_dir)
     retriever = get_retriever(chroma_db, k=4)
     app.state.retriever = retriever
+    app.state.pipeline_version = compute_pipeline_version()
+    app.state.http_client = httpx.Client(
+        timeout=httpx.Timeout(10.0, connect=5.0),
+        follow_redirects=True,
+        headers={"User-Agent": os.environ.get("USER_AGENT", "cd-audit-tool/0.1")},
+    )
 
     coll = getattr(chroma_db, "_collection", None)
     if coll is not None and hasattr(coll, "count"):
@@ -154,6 +173,10 @@ async def lifespan(app: FastAPI):
 
     logger.info("FCA knowledge base ready. %s chunks loaded.", n)
     yield
+    try:
+        app.state.http_client.close()
+    except Exception:  # noqa: BLE001
+        pass
     logger.info("Shutting down.")
 
 
@@ -245,14 +268,13 @@ def _build_comparison_report(
     report_a: AuditReport | InsufficientDataReport,
     report_b: AuditReport | InsufficientDataReport,
 ) -> ComparisonReport:
-    return ComparisonReport(
+    from backend.app.services.audit_service import build_comparison_report
+
+    return build_comparison_report(
         url_a=url_a,
         url_b=url_b,
-        hash_a=hashlib.md5(url_a.encode()).hexdigest(),
-        hash_b=hashlib.md5(url_b.encode()).hexdigest(),
         report_a=report_a,
         report_b=report_b,
-        generated_at_iso=datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
     )
 
 
@@ -265,6 +287,7 @@ def health():
         "app_version": app.version,
         "environment": (os.getenv("ENV") or "development").strip(),
         "git_sha": git_sha or None,
+        "pipeline_version": getattr(app.state, "pipeline_version", None),
         "fca_chunks_loaded": n,
         "fca_ready": n > 0,
         "groq_model": "llama-3.3-70b-versatile",
@@ -286,7 +309,7 @@ def get_audit_report(url: str = Query(..., description="Audited site URL (must m
             status_code=422,
             detail=f"Invalid URL: {u}. {reason}",
         )
-    cached = get_cached_report(u)
+    cached = get_cached_report(u, pipeline_version=app.state.pipeline_version)
     if cached is None:
         inc_metric("audit_report_get_miss")
         raise HTTPException(
@@ -298,6 +321,77 @@ def get_audit_report(url: str = Query(..., description="Audited site URL (must m
         content=cached.model_dump(mode="json"),
         headers={"X-Cache": "HIT"},
     )
+
+
+def _paginate(items: list, page: int, page_size: int) -> tuple[list, int]:
+    total = len(items)
+    start = (page - 1) * page_size
+    end = start + page_size
+    return items[start:end], total
+
+
+@app.get("/audit/report/findings", response_model=Page[Finding])
+def get_report_findings(
+    url: str = Query(..., description="Audited site URL (must match cache key)."),
+    outcome: str = Query(..., description="Outcome name, e.g. 'Consumer Support'."),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=50),
+):
+    u = url.strip()
+    ok, reason = validate_public_url(u)
+    if not ok:
+        raise HTTPException(status_code=422, detail=f"Invalid URL: {u}. {reason}")
+    cached = get_cached_report(u, pipeline_version=app.state.pipeline_version)
+    if cached is None:
+        raise HTTPException(status_code=404, detail="No cached report for this URL. Run POST /audit first.")
+    if isinstance(cached, InsufficientDataReport):
+        raise HTTPException(status_code=409, detail="Report is insufficient_data; no findings are available.")
+    report = cached
+    o = next((x for x in report.outcomes if x.outcome_name == outcome), None)
+    if o is None:
+        raise HTTPException(status_code=404, detail=f"Outcome not found: {outcome}")
+    sliced, total = _paginate(list(o.findings or []), page, page_size)
+    return Page[Finding](items=sliced, page=page, page_size=page_size, total=total)
+
+
+@app.get("/audit/report/dark-patterns", response_model=Page[DarkPattern])
+def get_report_dark_patterns(
+    url: str = Query(..., description="Audited site URL (must match cache key)."),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=50),
+):
+    u = url.strip()
+    ok, reason = validate_public_url(u)
+    if not ok:
+        raise HTTPException(status_code=422, detail=f"Invalid URL: {u}. {reason}")
+    cached = get_cached_report(u, pipeline_version=app.state.pipeline_version)
+    if cached is None:
+        raise HTTPException(status_code=404, detail="No cached report for this URL. Run POST /audit first.")
+    if isinstance(cached, InsufficientDataReport):
+        raise HTTPException(status_code=409, detail="Report is insufficient_data; dark patterns are unavailable.")
+    report = cached
+    sliced, total = _paginate(list(report.dark_patterns or []), page, page_size)
+    return Page[DarkPattern](items=sliced, page=page, page_size=page_size, total=total)
+
+
+@app.get("/audit/report/vulnerability-gaps", response_model=Page[VulnerabilityGap])
+def get_report_vulnerability_gaps(
+    url: str = Query(..., description="Audited site URL (must match cache key)."),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=50),
+):
+    u = url.strip()
+    ok, reason = validate_public_url(u)
+    if not ok:
+        raise HTTPException(status_code=422, detail=f"Invalid URL: {u}. {reason}")
+    cached = get_cached_report(u, pipeline_version=app.state.pipeline_version)
+    if cached is None:
+        raise HTTPException(status_code=404, detail="No cached report for this URL. Run POST /audit first.")
+    if isinstance(cached, InsufficientDataReport):
+        raise HTTPException(status_code=409, detail="Report is insufficient_data; vulnerability gaps are unavailable.")
+    report = cached
+    sliced, total = _paginate(list(report.vulnerability_gaps or []), page, page_size)
+    return Page[VulnerabilityGap](items=sliced, page=page, page_size=page_size, total=total)
 
 
 @app.get("/audit/compare/report", response_model=ComparisonReport)
@@ -318,8 +412,8 @@ def get_compare_report(
             status_code=422,
             detail=f"Invalid URL: {ub}. {reason}",
         )
-    ra = get_cached_report(ua)
-    rb = get_cached_report(ub)
+    ra = get_cached_report(ua, pipeline_version=app.state.pipeline_version)
+    rb = get_cached_report(ub, pipeline_version=app.state.pipeline_version)
     if ra is None or rb is None:
         inc_metric("compare_report_get_miss")
         raise HTTPException(
@@ -340,7 +434,7 @@ def audit(req: AuditRequest):
             detail=f"Invalid URL: {url}. {reason}",
         )
 
-    cached = get_cached_report(url)
+    cached = get_cached_report(url, pipeline_version=app.state.pipeline_version)
     if cached is not None:
         inc_metric("audit_post_total")
         inc_metric("audit_post_cache_hit")
@@ -353,7 +447,12 @@ def audit(req: AuditRequest):
     logger.info("Starting audit for %s", url)
     t0 = time.perf_counter()
     try:
-        report = run_audit(url, app.state.retriever)
+        report = get_or_run_audit(
+            url=url,
+            retriever=app.state.retriever,
+            pipeline_version=app.state.pipeline_version,
+            http_client=app.state.http_client,
+        )
     except Exception as e:  # noqa: BLE001
         logger.exception("Audit failed for %s", url)
         raise HTTPException(
@@ -362,7 +461,6 @@ def audit(req: AuditRequest):
         ) from e
 
     duration = time.perf_counter() - t0
-    cache_report(url, report)
     inc_metric("audit_post_total")
     inc_metric("audit_post_cache_miss")
     logger.info("Audit complete for %s in %.1fs", url, duration)
@@ -388,20 +486,13 @@ async def audit_compare(req: CompareRequest):
             detail=f"Invalid URL: {url_b}. {reason}",
         )
 
-    async def run_single(u: str) -> AuditReport | InsufficientDataReport:
-        cached = get_cached_report(u)
-        if cached is not None:
-            return cached
-        report = await asyncio.to_thread(run_audit, u, app.state.retriever)
-        cache_report(u, report)
-        return report
-
-    report_a, report_b = await asyncio.gather(
-        run_single(url_a),
-        run_single(url_b),
+    return await get_or_run_compare(
+        url_a=url_a,
+        url_b=url_b,
+        retriever=app.state.retriever,
+        pipeline_version=app.state.pipeline_version,
+        http_client=app.state.http_client,
     )
-
-    return _build_comparison_report(url_a, url_b, report_a, report_b)
 
 
 @app.post("/audit/journey", response_model=JourneyReport)
@@ -425,7 +516,12 @@ def audit_journey(req: JourneyRequest):
                 detail=f"Invalid step URL: {s.url}. {reason}",
             )
     try:
-        return run_journey(req.steps, app.state.retriever)
+        return get_or_run_journey(
+            steps=req.steps,
+            retriever=app.state.retriever,
+            pipeline_version=app.state.pipeline_version,
+            http_client=app.state.http_client,
+        )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     except Exception as e:  # noqa: BLE001
@@ -438,5 +534,8 @@ def audit_journey(req: JourneyRequest):
 
 @app.delete("/audit/cache", response_model=CacheDeleteResponse)
 def delete_audit_cache(url: str | None = Query(None)):
-    n = clear_cache(url)
+    if url is None:
+        n = clear_cache(None)
+    else:
+        n = clear_cache(url, pipeline_version=app.state.pipeline_version)
     return CacheDeleteResponse(deleted=n)

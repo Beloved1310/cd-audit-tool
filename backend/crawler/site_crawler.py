@@ -6,14 +6,16 @@ import os
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urlparse
 
-from dotenv import load_dotenv
-from langchain_community.document_loaders import FireCrawlLoader, WebBaseLoader
+import httpx
+from bs4 import BeautifulSoup
+from langchain_community.document_loaders import FireCrawlLoader
 
+from backend.config import get_settings
 from backend.security.url_safety import validate_public_url
 
-load_dotenv()
+_SETTINGS = get_settings()
 
 FALLBACK_PATHS: list[str] = [
     "",
@@ -51,7 +53,7 @@ class CrawledPage:
 
     url: str
     title: str
-    content: str 
+    content: str
     word_count: int
     crawled_at: datetime
 
@@ -94,6 +96,8 @@ def _doc_title(meta: dict) -> str:
 
 def _to_crawled_page(url: str, title: str, content: str) -> CrawledPage | None:
     text = (content or "").strip()
+    if len(text) > _SETTINGS.max_page_chars:
+        text = text[: _SETTINGS.max_page_chars]
     wc = len(text.split())
     if wc < 100:
         return None
@@ -133,10 +137,10 @@ def _priority_key(page: CrawledPage) -> tuple[int, str]:
 
 def _run_firecrawl(target: str) -> list[CrawledPage]:
     loader = FireCrawlLoader(
-        api_key=os.environ.get("FIRECRAWL_API_KEY"),
+        api_key=_SETTINGS.firecrawl_api_key or None,
         url=target,
         mode="crawl",
-        params={"limit": 15},
+        params={"limit": _SETTINGS.crawl_page_limit},
     )
     docs = loader.load()
     out: list[CrawledPage] = []
@@ -151,7 +155,12 @@ def _run_firecrawl(target: str) -> list[CrawledPage]:
     return out
 
 
-def _run_webbase_fallback(base_url: str, errors: list[str]) -> list[CrawledPage]:
+def _run_webbase_fallback(
+    base_url: str,
+    errors: list[str],
+    *,
+    client: httpx.Client,
+) -> list[CrawledPage]:
     out: list[CrawledPage] = []
     seen: set[str] = set()
     for path in FALLBACK_PATHS:
@@ -160,23 +169,25 @@ def _run_webbase_fallback(base_url: str, errors: list[str]) -> list[CrawledPage]
             continue
         seen.add(full)
         try:
-            loader = WebBaseLoader(web_paths=[full])
-            docs = loader.load()
+            resp = client.get(full)
+            resp.raise_for_status()
+            soup = BeautifulSoup(resp.text, "html.parser")
+            text = soup.get_text("\n", strip=True)
+            docs = [{"url": full, "title": soup.title.string.strip() if soup.title and soup.title.string else "", "content": text}]
         except Exception as e:  
             errors.append(f"{full}: {e!s}")
             continue
         for d in docs:
-            meta = dict(d.metadata or {})
-            url = _doc_url(meta) or full
-            title = _doc_title(meta)
-            content = d.page_content or ""
+            url = d.get("url") or full
+            title = d.get("title") or ""
+            content = d.get("content") or ""
             cp = _to_crawled_page(url, title, content)
             if cp is not None:
                 out.append(cp)
     return out
 
 
-def crawl_website(url: str) -> CrawlResult:
+def crawl_website(url: str, *, http_client: httpx.Client | None = None) -> CrawlResult:
     """
     Crawl a website using Firecrawl, or WebBaseLoader on listed paths if Firecrawl fails.
 
@@ -207,12 +218,17 @@ def crawl_website(url: str) -> CrawlResult:
             errors=[f"Blocked unsafe URL: {reason}"],
         )
 
+    client = http_client or httpx.Client(
+        timeout=httpx.Timeout(10.0, connect=5.0),
+        follow_redirects=True,
+        headers={"User-Agent": os.environ.get("USER_AGENT", "cd-audit-tool/0.1")},
+    )
     try:
         pages = _run_firecrawl(target)
     except Exception as e:  # noqa: BLE001
         errors.append(f"FirecrawlLoader: {e!s}")
         method = "fallback_webbase"
-        pages = _run_webbase_fallback(target, errors)
+        pages = _run_webbase_fallback(target, errors, client=client)
 
     # Dedupe by URL, keep first occurrence (higher priority after sort will reorder)
     by_url: dict[str, CrawledPage] = {}
@@ -224,6 +240,16 @@ def crawl_website(url: str) -> CrawlResult:
     pages.sort(key=_priority_key)
 
     total_words = sum(p.word_count for p in pages)
+    if total_words > _SETTINGS.max_total_words:
+        kept: list[CrawledPage] = []
+        running = 0
+        for p in pages:
+            if running + p.word_count > _SETTINGS.max_total_words:
+                continue
+            kept.append(p)
+            running += p.word_count
+        pages = kept
+        total_words = running
     duration = time.perf_counter() - t0
 
     return CrawlResult(
@@ -250,7 +276,7 @@ def _to_crawled_page_journey(url: str, title: str, content: str, *, min_words: i
     )
 
 
-def fetch_single_page(url: str) -> tuple[CrawledPage | None, str | None]:
+def fetch_single_page(url: str, *, http_client: httpx.Client | None = None) -> tuple[CrawledPage | None, str | None]:
     """
     Load exactly one URL (journey step). Returns ``(page, error)``.
     Uses WebBaseLoader for a predictable single-page scrape.
@@ -262,17 +288,24 @@ def fetch_single_page(url: str) -> tuple[CrawledPage | None, str | None]:
     if not ok:
         return None, f"Blocked unsafe URL: {reason}"
     try:
-        loader = WebBaseLoader(web_paths=[target])
-        docs = loader.load()
+        client = http_client or httpx.Client(
+            timeout=httpx.Timeout(10.0, connect=5.0),
+            follow_redirects=True,
+            headers={"User-Agent": os.environ.get("USER_AGENT", "cd-audit-tool/0.1")},
+        )
+        resp = client.get(target)
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, "html.parser")
+        text = soup.get_text("\n", strip=True)
+        docs = [{"url": target, "title": soup.title.string.strip() if soup.title and soup.title.string else "", "content": text}]
     except Exception as e: 
         return None, str(e)
     if not docs:
         return None, "No content returned"
     d = docs[0]
-    meta = dict(d.metadata or {})
-    resolved = _doc_url(meta) or target
-    title = _doc_title(meta)
-    content = d.page_content or ""
+    resolved = d.get("url") or target
+    title = d.get("title") or ""
+    content = d.get("content") or ""
     cp = _to_crawled_page_journey(resolved, title, content)
     if cp is None:
         return None, "Insufficient extractable text on page (try a different URL or check blocking)"

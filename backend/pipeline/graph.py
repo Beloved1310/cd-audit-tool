@@ -24,6 +24,7 @@ from backend.pipeline.nodes.validate_node import (
 )
 from backend.pipeline.nodes.vulnerability_node import vulnerability_node
 from backend.pipeline.state import AuditState
+from backend.pipeline.versioning import compute_pipeline_version
 from backend.schemas.audit import AuditReport, InsufficientDataReport
 
 _COMPILED = None
@@ -70,11 +71,14 @@ def _compiled():
     return _COMPILED
 
 
-def run_audit(url: str, retriever: Any) -> AuditReport | InsufficientDataReport:
+def run_audit(url: str, retriever: Any, http_client: Any | None = None) -> AuditReport | InsufficientDataReport:
     """Run the full audit graph; returns a complete audit or an early-exit report."""
+    pv = compute_pipeline_version()
     initial: AuditState = {
         "url": url.strip(),
+        "pipeline_version": pv,
         "retriever": retriever,
+        "http_client": http_client,
         "crawl_result": None,
         "validated": False,
         "status": "pending",

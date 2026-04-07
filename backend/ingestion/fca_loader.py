@@ -7,7 +7,6 @@ import os
 import sys
 from pathlib import Path
 
-from dotenv import load_dotenv
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.vectorstores import Chroma
 from langchain_core.documents import Document
@@ -15,7 +14,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.vectorstores import VectorStoreRetriever
 
-load_dotenv()
+from backend.config import get_settings
 
 COLLECTION_NAME = "fca_guidance"
 CHUNK_SIZE = 1000
@@ -23,7 +22,7 @@ CHUNK_OVERLAP = 200
 
 
 def _persist_dir() -> str:
-    return os.environ.get("CHROMA_PERSIST_DIR", "./chroma_db")
+    return str(get_settings().chroma_persist_dir)
 
 
 def _embeddings() -> HuggingFaceEmbeddings:
@@ -216,7 +215,7 @@ def retrieve_for_query(query: str, k: int = 6) -> list[dict]:
 
     Each item: ``source_id``, ``text``, ``metadata``, ``document_label`` (citation string).
     """
-    docs_dir = os.environ.get("FCA_DOCS_DIR", "./fca_docs")
+    docs_dir = str(get_settings().fca_docs_dir)
     chroma = load_fca_docs(docs_dir)
     retriever = get_retriever(chroma, k=k)
     docs = retriever.invoke(query)
@@ -254,7 +253,7 @@ if __name__ == "__main__":
         print(msg)
         sys.exit(0 if ok else 1)
 
-    docs_dir = os.environ.get("FCA_DOCS_DIR", "./fca_docs")
+    docs_dir = str(get_settings().fca_docs_dir)
     print(f"FCA docs directory: {Path(docs_dir).resolve()}")
     print(f"Chroma persist: {Path(_persist_dir()).resolve()}")
     print(f"Collection: {COLLECTION_NAME}")

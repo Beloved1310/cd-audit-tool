@@ -1,31 +1,32 @@
-"""File-based JSON cache for audit reports (MD5 URL key)."""
+"""File-based JSON cache for audit reports (versioned key)."""
 
 from __future__ import annotations
 
 import hashlib
 import json
 import logging
-import os
 from pathlib import Path
 import re
 
-from dotenv import load_dotenv
-
+from backend.config import get_settings
 from backend.schemas.audit import AuditReport, InsufficientDataReport
-
-load_dotenv()
+from backend.util.url_norm import canonical_url
 
 logger = logging.getLogger(__name__)
 
-CACHE_DIR = Path(
-    os.environ.get("AUDIT_CACHE_DIR", "./audit_cache"),
-).resolve()
+_SETTINGS = get_settings()
+CACHE_DIR = _SETTINGS.audit_cache_dir.resolve()
 
 _MD5_HEX = re.compile(r"^[0-9a-f]{32}$")
 
 
-def _url_hash(url: str) -> str:
-    return hashlib.md5(url.encode("utf-8")).hexdigest()
+def _cache_key(url: str, *, pipeline_version: str) -> str:
+    """Return a deterministic cache key for (url, pipeline_version).
+
+    The cache is versioned to avoid serving stale reports when prompts/criteria change.
+    """
+    base = f"{_SETTINGS.cache_key_version}|{pipeline_version}|{url}"
+    return hashlib.md5(base.encode("utf-8")).hexdigest()
 
 
 def _path_for_hash(h: str) -> Path:
@@ -39,8 +40,8 @@ def _path_for_hash(h: str) -> Path:
     return p
 
 
-def get_cached_report(url: str) -> AuditReport | InsufficientDataReport | None:
-    h = _url_hash(url)
+def get_cached_report(url: str, *, pipeline_version: str) -> AuditReport | InsufficientDataReport | None:
+    h = _cache_key(canonical_url(url), pipeline_version=pipeline_version)
     try:
         path = _path_for_hash(h)
     except ValueError:
@@ -60,16 +61,18 @@ def get_cached_report(url: str) -> AuditReport | InsufficientDataReport | None:
 
 def cache_report(url: str, report: AuditReport | InsufficientDataReport) -> None:
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    h = _url_hash(url)
+    pipeline_version = getattr(report, "pipeline_version", "") or "unknown"
+    h = _cache_key(canonical_url(url), pipeline_version=pipeline_version)
     path = _path_for_hash(h)
     path.write_text(report.model_dump_json(indent=2), encoding="utf-8")
     logger.info("Cached report for %s", url)
 
 
-def clear_cache(url: str | None = None) -> int:
+def clear_cache(url: str | None = None, *, pipeline_version: str | None = None) -> int:
     if url is not None:
         try:
-            path = _path_for_hash(_url_hash(url))
+            pv = pipeline_version or "unknown"
+            path = _path_for_hash(_cache_key(canonical_url(url), pipeline_version=pv))
         except ValueError:
             return 0
         if path.is_file():

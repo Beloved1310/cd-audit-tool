@@ -5,17 +5,15 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
 from langchain_groq import ChatGroq
 from pydantic import BaseModel
 from typing import TypeVar
 
+from backend.config import get_settings
 from backend.pipeline.groq_llm import chat_groq as _core_chat_groq, invoke_groq
 
 TModel = TypeVar("TModel", bound=BaseModel)
-
-load_dotenv()
 
 _PROMPTS_ROOT = Path(__file__).resolve().parent.parent / "prompts"
 
@@ -25,7 +23,7 @@ def load_prompt(name: str) -> str:
 
 
 def chat_groq() -> ChatGroq:
-    key = os.environ.get("GROQ_API_KEY")
+    key = get_settings().groq_api_key
     if not key:
         raise RuntimeError("GROQ_API_KEY is not set")
     return _core_chat_groq()

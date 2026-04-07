@@ -9,7 +9,9 @@ class AuditState(TypedDict, total=False):
     """State carried through the Consumer Duty audit graph."""
 
     url: str
+    pipeline_version: str
     retriever: Any
+    http_client: Any
     crawl_result: Any  # CrawlResult | None
     validated: bool
     status: str  # "pending", "crawl_failed", "insufficient_data", "complete"

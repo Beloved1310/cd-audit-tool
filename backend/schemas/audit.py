@@ -162,6 +162,10 @@ class AuditReport(BaseModel):
     insufficient_data: bool = False
     url: str
     audited_at: datetime
+    pipeline_version: str = Field(
+        default="",
+        description="Version identifier for the scoring pipeline (prompts/criteria/retrieval settings).",
+    )
     status: AuditStatus
     overall_rating: RAGRating | None = Field(
         default=None,
@@ -223,6 +227,10 @@ class InsufficientDataReport(BaseModel):
     insufficient_data: Literal[True] = True
     url: str
     audited_at: datetime
+    pipeline_version: str = Field(
+        default="",
+        description="Version identifier for the scoring pipeline (prompts/criteria/retrieval settings).",
+    )
     status: AuditStatus
     reason: str = Field(
         description="Human-readable reason (validation failure, crawl error, etc.).",

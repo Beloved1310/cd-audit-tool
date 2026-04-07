@@ -31,6 +31,7 @@ def compile_node(state: AuditState) -> dict:
         insufficient_data=False,
         url=state["url"],
         audited_at=now,
+        pipeline_version=str(state.get("pipeline_version") or ""),
         status=AuditStatus.COMPLETE,
         outcomes=[ps, pv, u, s],
         dark_patterns=list(state.get("dark_patterns") or []),
@@ -69,6 +70,7 @@ def early_exit_node(state: AuditState) -> dict:
     report = InsufficientDataReport(
         url=state["url"],
         audited_at=now,
+        pipeline_version=str(state.get("pipeline_version") or ""),
         status=ast,
         reason=reason,
         pages_crawled=pages_crawled,
