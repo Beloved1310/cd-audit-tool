@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { DarkPatternList } from "@/components/DarkPatternList";
 import { FrictionMap } from "@/components/FrictionMap";
@@ -12,6 +13,7 @@ import {
   type AuditResponse,
   type OutcomeScore,
 } from "@/types/audit";
+import { fetchCachedReport, type ApiErrorInfo } from "@/lib/api";
 
 const linkClass =
   "text-emerald-400 underline decoration-emerald-500/50 underline-offset-2 hover:text-emerald-300";
@@ -34,9 +36,56 @@ function pageUrlsFromOutcomes(outcomes: OutcomeScore[]): string[] {
 }
 
 function ReportInner() {
+  const searchParams = useSearchParams();
+  const urlParam = searchParams.get("url")?.trim() ?? "";
+
   const [raw, setRaw] = useState<AuditResponse | null | undefined>(undefined);
+  const [fetchError, setFetchError] = useState<ApiErrorInfo | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
+    if (urlParam) {
+      setFetchError(null);
+      setRaw(undefined);
+
+      const fromSession = sessionStorage.getItem("audit_report");
+      if (fromSession) {
+        try {
+          const parsed = JSON.parse(fromSession) as AuditResponse;
+          if (parsed.url?.trim() === urlParam) {
+            setRaw(parsed);
+            return () => {
+              cancelled = true;
+            };
+          }
+        } catch {
+          sessionStorage.removeItem("audit_report");
+        }
+      }
+
+      void (async () => {
+        try {
+          const data = await fetchCachedReport(urlParam);
+          if (cancelled) return;
+          sessionStorage.setItem("audit_report", JSON.stringify(data));
+          setRaw(data);
+        } catch (e) {
+          if (cancelled) return;
+          if (e && typeof e === "object" && "message" in (e as object)) {
+            setFetchError(e as ApiErrorInfo);
+          } else {
+            setFetchError({ message: "Request failed" });
+          }
+          setRaw(null);
+        }
+      })();
+
+      return () => {
+        cancelled = true;
+      };
+    }
+
     const s = sessionStorage.getItem("audit_report");
     if (!s) {
       setRaw(null);
@@ -47,10 +96,39 @@ function ReportInner() {
     } catch {
       setRaw(null);
     }
-  }, []);
+  }, [urlParam]);
 
   if (raw === undefined) {
     return <p className="text-app-muted">Loading…</p>;
+  }
+
+  if (fetchError) {
+    return (
+      <div className="space-y-3">
+        <div
+          className="rounded-xl border border-amber-500/30 bg-amber-950/40 p-4 text-sm text-amber-100"
+          role="alert"
+        >
+          <p className="font-medium text-amber-200">Could not load report</p>
+          <p className="mt-2 text-amber-100/90">{fetchError.message}</p>
+          {fetchError.requestId ? (
+            <p className="mt-2 text-xs text-amber-200/70">
+              Request ID: {fetchError.requestId}
+            </p>
+          ) : null}
+          <p className="mt-3 text-app-muted">
+            Cached reports can be opened via{" "}
+            <code className="rounded bg-app-bg px-1.5 py-0.5 text-xs text-zinc-300">
+              /report?url=…
+            </code>{" "}
+            after running an audit at least once for that exact URL.
+          </p>
+        </div>
+        <Link href="/" className={linkClass}>
+          Return home
+        </Link>
+      </div>
+    );
   }
 
   if (raw === null) {

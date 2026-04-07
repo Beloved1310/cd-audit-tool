@@ -23,6 +23,12 @@ from starlette.responses import Response
 
 from backend.cache.report_cache import cache_report, clear_cache, get_cached_report
 from backend.ingestion.fca_loader import get_retriever, load_fca_docs
+from backend.observability import (
+    configure_logging,
+    inc_metric,
+    metrics_snapshot,
+    request_id_ctx,
+)
 from backend.pipeline.graph import run_audit
 from backend.pipeline.journey_runner import JOURNEY_MAX_STEPS, JOURNEY_MIN_STEPS, run_journey
 from backend.security.url_safety import validate_public_url
@@ -31,7 +37,7 @@ from backend.schemas.journey import JourneyReport, JourneyStepInput
 
 load_dotenv()
 
-logging.basicConfig(level=logging.INFO)
+configure_logging()
 logger = logging.getLogger(__name__)
 
 # Env contract (python-dotenv): GROQ_API_KEY, FIRECRAWL_API_KEY, CHROMA_PERSIST_DIR,
@@ -47,13 +53,33 @@ def _request_id(request: Request) -> str:
 
 
 class RequestIdMiddleware(BaseHTTPMiddleware):
+    """Assign request ID, propagate to logs, emit one access line per request."""
+
     async def dispatch(self, request: Request, call_next):
         inbound = (request.headers.get("X-Request-ID") or "").strip()
         rid = inbound if inbound else uuid.uuid4().hex
         request.state.request_id = rid
-        resp: Response = await call_next(request)
-        resp.headers.setdefault("X-Request-ID", rid)
-        return resp
+        token = request_id_ctx.set(rid)
+        t0 = time.perf_counter()
+        status_code = 500
+        try:
+            resp: Response = await call_next(request)
+            status_code = resp.status_code
+            resp.headers.setdefault("X-Request-ID", rid)
+            return resp
+        except Exception:
+            status_code = 500
+            raise
+        finally:
+            duration_ms = (time.perf_counter() - t0) * 1000.0
+            logger.info(
+                "http_request method=%s path=%s status=%s duration_ms=%.1f",
+                request.method,
+                request.url.path,
+                status_code,
+                duration_ms,
+            )
+            request_id_ctx.reset(token)
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -213,13 +239,95 @@ def validate_url(url: str) -> bool:
     return ok
 
 
+def _build_comparison_report(
+    url_a: str,
+    url_b: str,
+    report_a: AuditReport | InsufficientDataReport,
+    report_b: AuditReport | InsufficientDataReport,
+) -> ComparisonReport:
+    return ComparisonReport(
+        url_a=url_a,
+        url_b=url_b,
+        hash_a=hashlib.md5(url_a.encode()).hexdigest(),
+        hash_b=hashlib.md5(url_b.encode()).hexdigest(),
+        report_a=report_a,
+        report_b=report_b,
+        generated_at_iso=datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
+    )
+
+
 @app.get("/health")
 def health():
+    n = int(getattr(app.state, "fca_chunk_count", 0) or 0)
+    git_sha = (os.getenv("GIT_SHA") or "").strip()
     return {
         "status": "ok",
-        "fca_chunks_loaded": getattr(app.state, "fca_chunk_count", 0),
+        "app_version": app.version,
+        "environment": (os.getenv("ENV") or "development").strip(),
+        "git_sha": git_sha or None,
+        "fca_chunks_loaded": n,
+        "fca_ready": n > 0,
         "groq_model": "llama-3.3-70b-versatile",
     }
+
+
+@app.get("/metrics")
+def metrics():
+    """Lightweight in-process counters (JSON); suitable for dashboards or smoke checks."""
+    return metrics_snapshot()
+
+
+@app.get("/audit/report")
+def get_audit_report(url: str = Query(..., description="Audited site URL (must match cache key).")):
+    u = url.strip()
+    ok, reason = validate_public_url(u)
+    if not ok:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid URL: {u}. {reason}",
+        )
+    cached = get_cached_report(u)
+    if cached is None:
+        inc_metric("audit_report_get_miss")
+        raise HTTPException(
+            status_code=404,
+            detail="No cached report for this URL. Run POST /audit first.",
+        )
+    inc_metric("audit_report_get_hit")
+    return JSONResponse(
+        content=cached.model_dump(mode="json"),
+        headers={"X-Cache": "HIT"},
+    )
+
+
+@app.get("/audit/compare/report", response_model=ComparisonReport)
+def get_compare_report(
+    url_a: str = Query(..., description="First site URL (sorted pair with url_b)."),
+    url_b: str = Query(..., description="Second site URL."),
+):
+    ua, ub = sorted([url_a.strip(), url_b.strip()])
+    ok, reason = validate_public_url(ua)
+    if not ok:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid URL: {ua}. {reason}",
+        )
+    ok, reason = validate_public_url(ub)
+    if not ok:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid URL: {ub}. {reason}",
+        )
+    ra = get_cached_report(ua)
+    rb = get_cached_report(ub)
+    if ra is None or rb is None:
+        inc_metric("compare_report_get_miss")
+        raise HTTPException(
+            status_code=404,
+            detail="One or both audits are not in cache. Run POST /audit/compare first.",
+        )
+    inc_metric("compare_report_get_hit")
+    return _build_comparison_report(ua, ub, ra, rb)
 
 
 @app.post("/audit")
@@ -234,6 +342,8 @@ def audit(req: AuditRequest):
 
     cached = get_cached_report(url)
     if cached is not None:
+        inc_metric("audit_post_total")
+        inc_metric("audit_post_cache_hit")
         logger.info("Cache HIT for %s", url)
         return JSONResponse(
             content=cached.model_dump(mode="json"),
@@ -253,6 +363,8 @@ def audit(req: AuditRequest):
 
     duration = time.perf_counter() - t0
     cache_report(url, report)
+    inc_metric("audit_post_total")
+    inc_metric("audit_post_cache_miss")
     logger.info("Audit complete for %s in %.1fs", url, duration)
     return JSONResponse(
         content=report.model_dump(mode="json"),
@@ -289,16 +401,7 @@ async def audit_compare(req: CompareRequest):
         run_single(url_b),
     )
 
-    comparison = ComparisonReport(
-        url_a=url_a,
-        url_b=url_b,
-        hash_a=hashlib.md5(url_a.encode()).hexdigest(),
-        hash_b=hashlib.md5(url_b.encode()).hexdigest(),
-        report_a=report_a,
-        report_b=report_b,
-        generated_at_iso=datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
-    )
-    return comparison
+    return _build_comparison_report(url_a, url_b, report_a, report_b)
 
 
 @app.post("/audit/journey", response_model=JourneyReport)

@@ -90,12 +90,14 @@ export default function JourneyPage() {
       </Link>
 
       <h1 className="mt-4 text-2xl font-semibold tracking-tight text-zinc-50">
-        Journey mode
+        User journey
       </h1>
       <p className="mt-2 text-sm leading-relaxed text-app-muted">
-        Define a path (e.g. homepage → product → checkout → support). Each step is
-        fetched individually and analysed for friction signals and dark patterns
-        with verbatim evidence — complementary to a full-site audit.
+        Map the route you care about, for example from the homepage to a product page,
+        then checkout, then support. We fetch each URL in order. Every step is
+        analysed for friction signals and dark patterns, with exact quotes from the
+        page as evidence. Use this together with a full-site audit: here you choose
+        the path; a full audit covers the wider site.
       </p>
 
       <form

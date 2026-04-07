@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { runAudit, runCompare } from "@/lib/api";
-import type { AuditResponse, ComparisonReport, InsufficientDataReport } from "@/types/audit";
+import type { ComparisonReport } from "@/types/audit";
 import type { ApiErrorInfo } from "@/lib/api";
 
 const LOADING_MESSAGES = [
@@ -29,10 +29,6 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false);
   const [msgIdx, setMsgIdx] = useState(0);
   const [error, setError] = useState<ApiErrorInfo | null>(null);
-  const [insufficient, setInsufficient] = useState<InsufficientDataReport | null>(
-    null,
-  );
-
   useEffect(() => {
     if (!loading) return;
     const t = setInterval(() => {
@@ -43,17 +39,13 @@ export default function HomePage() {
 
   async function handleAudit() {
     setError(null);
-    setInsufficient(null);
     setLoading(true);
     setMsgIdx(0);
     try {
       const data = await runAudit(url.trim());
-      if (data.insufficient_data) {
-        setInsufficient(data as InsufficientDataReport);
-        return;
-      }
+      const u = url.trim();
       sessionStorage.setItem("audit_report", JSON.stringify(data));
-      router.push("/report");
+      router.push(`/report?url=${encodeURIComponent(u)}`);
     } catch (e) {
       if (e && typeof e === "object" && "message" in (e as any)) {
         setError(e as ApiErrorInfo);
@@ -75,7 +67,10 @@ export default function HomePage() {
         urlB.trim(),
       );
       sessionStorage.setItem("comparison_report", JSON.stringify(data));
-      router.push("/compare");
+      const [a, b] = [urlA.trim(), urlB.trim()].sort();
+      router.push(
+        `/compare?url_a=${encodeURIComponent(a)}&url_b=${encodeURIComponent(b)}`,
+      );
     } catch (e) {
       if (e && typeof e === "object" && "message" in (e as any)) {
         setError(e as ApiErrorInfo);
@@ -147,21 +142,6 @@ export default function HomePage() {
                 <p className="mt-4 text-sm text-emerald-400/90" aria-live="polite">
                   {LOADING_MESSAGES[msgIdx]}
                 </p>
-              ) : null}
-              {insufficient ? (
-                <div
-                  className="mt-4 rounded-lg border border-amber-500/30 bg-amber-950/40 px-4 py-3 text-sm text-amber-100"
-                  role="alert"
-                >
-                  <p className="font-medium text-amber-200">Audit could not complete</p>
-                  <p className="mt-2 text-amber-100/90">{insufficient.reason}</p>
-                  <p className="mt-2 text-app-muted">
-                    Pages crawled: {insufficient.pages_crawled.length}
-                  </p>
-                  <p className="text-app-muted">
-                    Words analysed: {insufficient.total_words_analysed}
-                  </p>
-                </div>
               ) : null}
             </div>
           ) : (
@@ -239,7 +219,7 @@ export default function HomePage() {
         </Link>
         <span className="mx-2 text-zinc-600">·</span>
         <Link href="/journey" className={linkClass}>
-          Journey mode
+          User journey
         </Link>
       </p>
     </main>

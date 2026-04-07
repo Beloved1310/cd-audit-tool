@@ -51,6 +51,30 @@ export async function runAudit(url: string): Promise<AuditResponse> {
   return res.json() as Promise<AuditResponse>;
 }
 
+/** Load a report from server disk cache (same key as POST /audit). For deep links / refresh. */
+export async function fetchCachedReport(url: string): Promise<AuditResponse> {
+  const q = new URLSearchParams({ url });
+  const res = await fetch(`${API_BASE}/audit/report?${q}`);
+  if (!res.ok) {
+    throw await parseApiError(res);
+  }
+  return res.json() as Promise<AuditResponse>;
+}
+
+/** Load comparison when both single-URL audits are already cached (sorted query matches POST /audit/compare). */
+export async function fetchCachedCompareReport(
+  urlA: string,
+  urlB: string,
+): Promise<ComparisonReport> {
+  const [a, b] = [urlA.trim(), urlB.trim()].sort();
+  const q = new URLSearchParams({ url_a: a, url_b: b });
+  const res = await fetch(`${API_BASE}/audit/compare/report?${q}`);
+  if (!res.ok) {
+    throw await parseApiError(res);
+  }
+  return res.json() as Promise<ComparisonReport>;
+}
+
 export async function runCompare(
   url_a: string,
   url_b: string,

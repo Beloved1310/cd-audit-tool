@@ -1,19 +1,71 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { ComparisonTable } from "@/components/ComparisonTable";
 import { OutcomeCard } from "@/components/OutcomeCard";
 import type { AuditReport, ComparisonReport } from "@/types/audit";
 import { OUTCOME_DISPLAY_ORDER } from "@/types/audit";
+import { fetchCachedCompareReport, type ApiErrorInfo } from "@/lib/api";
 
 const linkClass =
   "text-emerald-400 underline decoration-emerald-500/50 underline-offset-2 hover:text-emerald-300";
 
 function CompareInner() {
+  const searchParams = useSearchParams();
+  const urlA = searchParams.get("url_a")?.trim() ?? "";
+  const urlB = searchParams.get("url_b")?.trim() ?? "";
+  const hasPair = Boolean(urlA && urlB);
+  const [sortedA, sortedB] = [urlA, urlB].sort();
+
   const [data, setData] = useState<ComparisonReport | null | undefined>(undefined);
+  const [fetchError, setFetchError] = useState<ApiErrorInfo | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
+    if (hasPair) {
+      setFetchError(null);
+      setData(undefined);
+
+      const fromSession = sessionStorage.getItem("comparison_report");
+      if (fromSession) {
+        try {
+          const parsed = JSON.parse(fromSession) as ComparisonReport;
+          if (parsed.url_a === sortedA && parsed.url_b === sortedB) {
+            setData(parsed);
+            return () => {
+              cancelled = true;
+            };
+          }
+        } catch {
+          /* fetch below */
+        }
+      }
+
+      void (async () => {
+        try {
+          const report = await fetchCachedCompareReport(urlA, urlB);
+          if (cancelled) return;
+          sessionStorage.setItem("comparison_report", JSON.stringify(report));
+          setData(report);
+        } catch (e) {
+          if (cancelled) return;
+          if (e && typeof e === "object" && "message" in (e as object)) {
+            setFetchError(e as ApiErrorInfo);
+          } else {
+            setFetchError({ message: "Request failed" });
+          }
+          setData(null);
+        }
+      })();
+
+      return () => {
+        cancelled = true;
+      };
+    }
+
     const s = sessionStorage.getItem("comparison_report");
     if (!s) {
       setData(null);
@@ -24,10 +76,39 @@ function CompareInner() {
     } catch {
       setData(null);
     }
-  }, []);
+  }, [hasPair, sortedA, sortedB, urlA, urlB]);
 
   if (data === undefined) {
     return <p className="text-app-muted">Loading…</p>;
+  }
+
+  if (fetchError) {
+    return (
+      <div className="space-y-3">
+        <div
+          className="rounded-xl border border-amber-500/30 bg-amber-950/40 p-4 text-sm text-amber-100"
+          role="alert"
+        >
+          <p className="font-medium text-amber-200">Could not load comparison</p>
+          <p className="mt-2 text-amber-100/90">{fetchError.message}</p>
+          {fetchError.requestId ? (
+            <p className="mt-2 text-xs text-amber-200/70">
+              Request ID: {fetchError.requestId}
+            </p>
+          ) : null}
+          <p className="mt-3 text-app-muted">
+            Use{" "}
+            <code className="rounded bg-app-bg px-1.5 py-0.5 text-xs text-zinc-300">
+              {`/compare?url_a=…&url_b=…`}
+            </code>{" "}
+            after both URLs have been audited (for example via Compare on the home page).
+          </p>
+        </div>
+        <Link href="/" className={linkClass}>
+          Return home
+        </Link>
+      </div>
+    );
   }
 
   if (data === null) {
