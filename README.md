@@ -6,6 +6,16 @@ This tool accepts a UK financial services website URL and generates a structured
 
 It produces outcome-level scores and evidence for all four Consumer Duty outcomes: Products & Services (PRIN 2A.2), Price & Value (PRIN 2A.3), Consumer Understanding (PRIN 2A.4), and Consumer Support (PRIN 2A.5). Products & Services and Price & Value are scored from public website evidence only and should be treated as partial where internal firm data is required.
 
+## Design notes (architecture, trade-offs, scale)
+
+If you’re assessing engineering depth (why it’s built this way, trade-offs, improvements, scale), start here:
+
+- `docs/features.md`
+- `docs/architecture.md`
+- `docs/tradeoffs-and-limitations.md`
+- `docs/scaling-and-production.md`
+- `docs/evaluation.md`
+
 ## How It Works
 
 The backend crawls the site using FireCrawl and extracts clean markdown text from up to 15 pages. A validation gate requires at least 3 pages and 2000 words, otherwise the pipeline returns an INSUFFICIENT_DATA report.
