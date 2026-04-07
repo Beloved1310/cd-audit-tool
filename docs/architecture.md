@@ -27,7 +27,7 @@ Code pointers:
 - **Report contracts**: `backend/schemas/audit.py` and `frontend/types/audit.ts`
 - **UI**: Next.js app under `frontend/app/`
 
-## Why it’s designed this way
+## Why it is designed this way
 
 ### Criteria-based scoring (vs holistic scoring)
 
