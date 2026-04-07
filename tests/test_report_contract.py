@@ -21,6 +21,27 @@ class TestReportContract(unittest.TestCase):
         self.assertTrue(hasattr(o, "scope_note"))
         self.assertEqual(o.assessment_scope, "public_website_only")
 
+    def test_pipeline_version_field_exists(self):
+        from datetime import datetime, timezone
+
+        from backend.schemas.audit import AuditReport, AuditStatus
+
+        r = AuditReport(
+            insufficient_data=False,
+            url="https://example.com",
+            audited_at=datetime.now(timezone.utc),
+            pipeline_version="p_test",
+            status=AuditStatus.COMPLETE,
+            outcomes=[],
+            dark_patterns=[],
+            vulnerability_gaps=[],
+            pages_crawled=[],
+            total_words_analysed=0,
+            crawl_duration_seconds=0.0,
+            pipeline_duration_seconds=0.0,
+        )
+        self.assertEqual(r.pipeline_version, "p_test")
+
 
 if __name__ == "__main__":
     unittest.main()

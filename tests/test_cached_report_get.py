@@ -78,6 +78,7 @@ class TestCachedReportGet(unittest.TestCase):
             r = client.get("/metrics")
         self.assertEqual(r.status_code, 200)
         self.assertIsInstance(r.json(), dict)
+        self.assertIn("timings_ms", r.json())
 
 
 if __name__ == "__main__":
