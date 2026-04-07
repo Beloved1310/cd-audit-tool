@@ -56,7 +56,7 @@ Implement layered limits:
 
 Provider-specific behaviour:
 
-- Groq calls may return HTTP 429. The application retries a bounded number of times and then degrades to partial outcome results to keep latency predictable.
+- Groq calls may return HTTP 429. The application retries a bounded number of times (currently three) and then degrades to partial outcome results to keep latency predictable.
 
 ### Observability
 

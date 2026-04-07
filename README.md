@@ -28,7 +28,7 @@ Scoring is criteria-based. Each outcome has five criteria worth two points each.
 
 Citations are grounded in retrieved chunks, not model memory. Prompts instruct the model to cite only from the provided `fca_sources` list so references can be traced to the retrieved FCA documents.
 
-Each outcome includes a confidence level, HIGH, MEDIUM, or LOW, derived from crawl depth and the amount of text analysed. Reports are cached on disk under `audit_cache/` using a versioned key that includes a `pipeline_version` so cached results do not go stale when prompts/criteria change.
+Each outcome includes a confidence level, HIGH, MEDIUM, or LOW, derived from crawl depth and the amount of text analysed. Reports are cached on disk under `audit_cache/` using a versioned key that includes a canonicalised URL and `pipeline_version`.
 
 ## Prerequisites
 
@@ -120,6 +120,13 @@ For large reports, the API exposes paginated endpoints backed by the cached repo
 - `GET /audit/report/findings?url=…&outcome=…&page=1&page_size=10`
 - `GET /audit/report/dark-patterns?url=…&page=1&page_size=10`
 - `GET /audit/report/vulnerability-gaps?url=…&page=1&page_size=10`
+
+## Additional caches
+
+In addition to per-URL audit reports, the backend caches derived results under `audit_cache/`:
+
+- `audit_cache/compare/`: cached comparison reports (idempotent on canonicalised URL pair + pipeline version)
+- `audit_cache/journey/`: cached journey reports (idempotent on canonicalised step URLs + pipeline version)
 
 ## Security Notes
 

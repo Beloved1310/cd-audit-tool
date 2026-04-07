@@ -18,6 +18,7 @@ Pipeline:
 Code pointers:
 
 - **API**: `backend/main.py` (FastAPI entry point)
+- **Application services**: `backend/app/services/audit_service.py` (use-cases: audit/compare/journey)
 - **Orchestration**: LangGraph workflow nodes (see `backend/` pipeline modules)
 - **Criteria definitions**: `backend/pipeline/scorer.py`
 - **Report contracts**: `backend/schemas/audit.py` and `frontend/types/audit.ts`
@@ -56,6 +57,13 @@ Reports are cached under a versioned key derived from the canonicalised URL and 
 - **Cost control**: reduce repeated model calls.
 
 Trade-off: cached results can become stale if the target site changes; see `docs/tradeoffs-and-limitations.md`.
+
+Canonical URL rules (used for cache and idempotency keys):
+
+- lower-case scheme and host
+- remove default ports (`:80`, `:443`)
+- drop fragments (`#…`)
+- ensure a path is present (`/`)
 
 ## Data flow and boundaries
 
