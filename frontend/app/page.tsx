@@ -44,7 +44,14 @@ export default function HomePage() {
     try {
       const data = await runAudit(url.trim());
       const u = url.trim();
-      sessionStorage.setItem("audit_report", JSON.stringify(data));
+      sessionStorage.setItem("audit_last_url", u);
+      const raw = JSON.stringify(data);
+      const maxBytes = 200_000;
+      if (raw.length <= maxBytes) {
+        sessionStorage.setItem("audit_report", raw);
+      } else {
+        sessionStorage.removeItem("audit_report");
+      }
       router.push(`/report?url=${encodeURIComponent(u)}`);
     } catch (e) {
       if (e && typeof e === "object" && "message" in (e as any)) {
@@ -66,6 +73,7 @@ export default function HomePage() {
         urlA.trim(),
         urlB.trim(),
       );
+      sessionStorage.setItem("comparison_last", JSON.stringify({ urlA: urlA.trim(), urlB: urlB.trim() }));
       sessionStorage.setItem("comparison_report", JSON.stringify(data));
       const [a, b] = [urlA.trim(), urlB.trim()].sort();
       router.push(

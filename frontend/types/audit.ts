@@ -65,6 +65,7 @@ export interface AuditReport {
   insufficient_data: false;
   url: string;
   audited_at: string;
+  pipeline_version: string;
   status: AuditStatus;
   overall_rating: RAGRating | null;
   overall_score: number | null;
@@ -82,6 +83,7 @@ export interface InsufficientDataReport {
   insufficient_data: true;
   url: string;
   audited_at: string;
+  pipeline_version: string;
   status: AuditStatus;
   reason: string;
   pages_crawled: string[];
