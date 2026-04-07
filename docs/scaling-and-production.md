@@ -9,7 +9,7 @@ This tool is designed to be auditable first. Scaling requires explicit controls 
 - **Vector retrieval**: generally fast, but index quality (chunking, metadata) drives answer quality.
 - **Caching/storage**: local disk cache is not durable across instances and is not safe as the primary store in multi-instance deployments.
 
-## Production architecture (recommended)
+## Production architecture
 
 ### Queue-based execution
 
