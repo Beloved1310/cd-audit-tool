@@ -1,11 +1,13 @@
 from backend.schemas.audit import (
     AuditReport,
+    AuditResponse,
     AuditStatus,
     ComparisonReport,
     ConfidenceLevel,
     CriterionScore,
     DarkPattern,
     Finding,
+    InsufficientDataReport,
     OutcomeScore,
     RAGRating,
     VulnerabilityGap,
@@ -13,12 +15,14 @@ from backend.schemas.audit import (
 
 __all__ = [
     "AuditReport",
+    "AuditResponse",
     "AuditStatus",
     "ComparisonReport",
     "ConfidenceLevel",
     "CriterionScore",
     "DarkPattern",
     "Finding",
+    "InsufficientDataReport",
     "OutcomeScore",
     "RAGRating",
     "VulnerabilityGap",
