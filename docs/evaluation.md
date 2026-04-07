@@ -1,18 +1,16 @@
 # Evaluation and quality
 
-The goal of this tool is not just to generate text, but to generate **auditable, stable, actionable** audit outputs.
-
-This page describes how to assess and improve quality over time.
+The goal is **auditable, stable, actionable** outputs.
 
 ## What “good” looks like
 
 For a given target site, a good report:
 
-- uses **verbatim evidence quotes** that actually support the finding/score
-- cites **only retrieved FCA sources** (no invented references)
-- produces **consistent scores** across runs when the site content is unchanged
-- clearly marks **insufficient data** and low-confidence situations
-- provides recommendations that are specific enough to implement
+- uses verbatim evidence that supports the score/finding
+- cites only retrieved FCA sources
+- is consistent across runs on unchanged content
+- makes insufficient-data and low-confidence states explicit
+- provides specific, implementable recommendations
 
 ## Evaluation dimensions
 
@@ -20,9 +18,9 @@ For a given target site, a good report:
 
 Checks:
 
-- Does each criterion’s evidence quote support the awarded points?
-- Are page URLs correct and reachable?
-- Are FCA references present and traceable to retrieved chunks?
+- evidence supports awarded points
+- page URLs are correct
+- FCA references are present and traceable
 
 ### Scoring consistency
 
@@ -61,7 +59,7 @@ Checks:
 
 ## Testing strategy (today and next)
 
-Today there are unit/integration tests focusing on correctness and safety boundaries (URL validation, injection mitigation, cache safety, request id propagation).
+Current tests focus on URL safety, injection mitigation, cache safety, and request ID propagation.
 
 Next additions that increase confidence:
 

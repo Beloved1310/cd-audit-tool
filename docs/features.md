@@ -1,6 +1,6 @@
 # Features
 
-This document describes the user-facing capabilities of the Consumer Duty Sludge Audit Tool.
+This document lists the user-facing capabilities of the Consumer Duty Sludge Audit Tool.
 
 ## Core workflows
 
@@ -39,7 +39,7 @@ Define a specific journey as an ordered list of URLs (for example: homepage → 
 - friction signals (journey-specific obstacles that indicate customer effort)
 - suspected dark patterns, with verbatim evidence quotes
 
-This complements the full-site audit: the journey audit is path-specific; the full audit is breadth-first across the site.
+This complements the full-site audit: the journey audit is path-specific; the full audit is breadth-first.
 
 ## Report experience (what users see)
 

@@ -1,6 +1,6 @@
 # Scaling and production considerations
 
-This tool is designed to be correct and auditable first. Scaling it responsibly means making costs, latency, quotas, and data retention explicit.
+This tool is designed to be auditable first. Scaling requires explicit controls for cost, latency, quotas, and retention.
 
 ## What happens at scale (expected bottlenecks)
 
@@ -13,7 +13,7 @@ This tool is designed to be correct and auditable first. Scaling it responsibly 
 
 ### Queue-based execution
 
-Move `POST /audit` from “do all work inline” to:
+Move `POST /audit` from synchronous execution to an async job model:
 
 1. accept the request and validate the URL
 2. enqueue a job (with an idempotency key based on the normalised URL + pipeline version)
@@ -29,7 +29,7 @@ Rationale:
 
 ### Durable storage
 
-Store reports in object storage or a database, not local disk:
+Store reports in durable storage (not local disk):
 
 - **Object storage**: JSON report blobs keyed by hash/version
 - **DB**: metadata (url, created_at, status, durations, score summaries, tenant/user)
@@ -90,11 +90,7 @@ If deployed for multiple users/teams:
 
 When usage grows, “quality regressions” become operational incidents.
 
-Add:
-
-- regression suite of known sites and expected rubric outcomes
-- periodic re-evaluation when prompts/criteria/index changes
-- monitoring for drift in score distributions over time
+Add a regression suite, periodic re-evaluation on pipeline/index changes, and drift monitoring on score distributions.
 
 See `docs/evaluation.md`.
 
