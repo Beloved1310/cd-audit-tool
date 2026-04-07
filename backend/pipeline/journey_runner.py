@@ -130,6 +130,7 @@ def _analyse_step_llm(
 def run_journey(
     steps: list[JourneyStepInput],
     retriever: Any,
+    http_client: Any | None = None,
 ) -> JourneyReport:
     if len(steps) < JOURNEY_MIN_STEPS:
         raise ValueError(f"At least {JOURNEY_MIN_STEPS} steps are required")
@@ -150,7 +151,7 @@ def run_journey(
     for i, inp in enumerate(steps):
         url = inp.url.strip()
         label = inp.label.strip() or f"Step {i + 1}"
-        page, err = fetch_single_page(url)
+        page, err = fetch_single_page(url, http_client=http_client)
         if page is None:
             results.append(
                 JourneyStepResult(
