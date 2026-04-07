@@ -2,9 +2,9 @@
 
 The audit evaluates untrusted public websites. Website content can contain
 adversarial text intended to override instructions ("prompt injection").
-We mitigate by:
-1) wrapping content in a clear data-only boundary, and
-2) redacting common injection-style directives.
+Mitigation:
+1) wrap content in a clear data-only boundary
+2) redact common injection-style directives
 """
 
 from __future__ import annotations

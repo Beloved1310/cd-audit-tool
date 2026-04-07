@@ -5,9 +5,8 @@ from __future__ import annotations
 import json
 import logging
 
-from dotenv import load_dotenv
-
 from backend.ingestion.fca_loader import get_sources_from_docs
+from backend.observability import stage_timer
 from backend.pipeline.content_builder import (
     build_crawl_markdown,
     format_fca_sources_numbered,
@@ -21,8 +20,6 @@ from backend.pipeline.state import AuditState
 from backend.security.prompt_injection import sanitise_website_content
 from backend.schemas.audit import ConfidenceLevel, OutcomeScore, RAGRating
 from backend.schemas.llm_io import OutcomeGroqOutput, outcome_from_groq_output
-
-load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -55,8 +52,10 @@ def products_services_node(state: AuditState) -> dict:
     retriever = state["retriever"]
     assert cr is not None
 
-    website_content = sanitise_website_content(build_crawl_markdown(cr, max_chars=10_000))
-    docs = retriever.invoke(_QUERY)[:4]
+    with stage_timer("products_services_prepare"):
+        website_content = sanitise_website_content(build_crawl_markdown(cr, max_chars=10_000))
+    with stage_timer("products_services_retrieve"):
+        docs = retriever.invoke(_QUERY)[:4]
     sources = get_sources_from_docs(docs)
     fca_context = truncate_chars(
         "\n\n".join(d.page_content for d in docs),
@@ -79,7 +78,8 @@ def products_services_node(state: AuditState) -> dict:
     llm = chat_groq()
     structured = llm.with_structured_output(OutcomeGroqOutput)
     try:
-        raw = invoke_groq(structured, formatted_prompt)
+        with stage_timer("products_services_llm"):
+            raw = invoke_groq(structured, formatted_prompt)
         if not isinstance(raw, OutcomeGroqOutput):
             raw = OutcomeGroqOutput.model_validate(raw)
         result = outcome_from_groq_output(raw)
