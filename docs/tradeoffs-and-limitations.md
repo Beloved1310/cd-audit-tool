@@ -105,5 +105,9 @@ Without additional infrastructure (queueing, durable storage, observability), hi
 - the model provider quotas / rate limits
 - local disk cache contention and eviction strategy
 
+### Provider throttling (Groq)
+
+LLM calls may be rate limited (HTTP 429). The backend retries a small number of times with exponential backoff and then returns outcome-level “scoring unavailable” rather than blocking indefinitely.
+
 For a concrete production path, see `docs/scaling-and-production.md`.
 

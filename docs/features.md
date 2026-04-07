@@ -100,6 +100,7 @@ The backend provides endpoints for:
 - retrieving cached reports
 - comparisons (run and retrieve)
 - journey audits
+- paginated access to large report sections (findings, dark patterns, vulnerability gaps)
 - cache management
 
 See `README.md` for quickstart and example API usage.

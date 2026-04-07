@@ -28,7 +28,7 @@ Scoring is criteria-based. Each outcome has five criteria worth two points each.
 
 Citations are grounded in retrieved chunks, not model memory. Prompts instruct the model to cite only from the provided `fca_sources` list so references can be traced to the retrieved FCA documents.
 
-Each outcome includes a confidence level, HIGH, MEDIUM, or LOW, derived from crawl depth and the amount of text analysed. Reports are cached as JSON under `audit_cache/` using a URL hash, and the cache can be cleared via `DELETE /audit/cache`.
+Each outcome includes a confidence level, HIGH, MEDIUM, or LOW, derived from crawl depth and the amount of text analysed. Reports are cached on disk under `audit_cache/` using a versioned key that includes a `pipeline_version` so cached results do not go stale when prompts/criteria change.
 
 ## Prerequisites
 
@@ -56,6 +56,18 @@ add these to `.env` to suppress Chroma telemetry errors and HuggingFace tokenise
 ```bash
 ANONYMIZED_TELEMETRY=false
 TOKENIZERS_PARALLELISM=false
+```
+
+Optional settings:
+
+```bash
+# Identifies outbound HTTP requests in logs.
+USER_AGENT="cd-audit-tool/0.1 (local)"
+
+# Crawl/memory limits
+CRAWL_PAGE_LIMIT=15
+MAX_PAGE_CHARS=40000
+MAX_TOTAL_WORDS=60000
 ```
 
 ### Frontend
@@ -100,6 +112,14 @@ curl -X POST http://localhost:8000/audit \
   -H "Content-Type: application/json" \
   -d '{"url": "https://www.example-firm.co.uk"}'
 ```
+
+## Pagination endpoints (large reports)
+
+For large reports, the API exposes paginated endpoints backed by the cached report:
+
+- `GET /audit/report/findings?url=…&outcome=…&page=1&page_size=10`
+- `GET /audit/report/dark-patterns?url=…&page=1&page_size=10`
+- `GET /audit/report/vulnerability-gaps?url=…&page=1&page_size=10`
 
 ## Security Notes
 

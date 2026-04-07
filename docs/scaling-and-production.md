@@ -54,6 +54,10 @@ Implement layered limits:
 - per-tenant concurrency limits
 - cost budgets (max pages crawled, max tokens, max model calls) with explicit “degraded mode”
 
+Provider-specific behaviour:
+
+- Groq calls may return HTTP 429. The application retries a bounded number of times and then degrades to partial outcome results to keep latency predictable.
+
 ### Observability
 
 Add structured tracing with:
@@ -61,6 +65,8 @@ Add structured tracing with:
 - request ID propagation end-to-end
 - per-stage timings (crawl, retrieval, scoring, compile)
 - error taxonomy (crawl failure, insufficient data, rate limit, provider errors)
+
+In this codebase, `/metrics` already exposes lightweight counters and per-stage timing aggregates (`timings_ms`) for smoke-checking and local profiling.
 
 SLOs to define:
 

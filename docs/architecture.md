@@ -50,7 +50,7 @@ Typed schemas define orchestration state and persisted report JSON to keep the p
 
 ### URL-keyed caching
 
-Reports are cached under a URL hash key. Rationale:
+Reports are cached under a versioned key derived from the canonicalised URL and `pipeline_version`. Rationale:
 
 - **Repeatability**: reopen the same URL without re-running.
 - **Cost control**: reduce repeated model calls.
