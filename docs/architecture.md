@@ -91,7 +91,7 @@ The system is built to surface failures explicitly:
 
 ## Decision log (stack choices)
 
-This section records the engineering rationale: goal → constraints → options → trade-offs → decision → what we would change next.
+This section records my engineering rationale: goal → constraints → options → trade-offs → decision → what I would change next.
 
 ### Frontend framework: Next.js (App Router) vs plain React SPA
 
@@ -107,19 +107,19 @@ This section records the engineering rationale: goal → constraints → options
 ### Backend API: FastAPI + Pydantic vs Django/DRF vs Flask
 
 - **Goal**: typed API contracts and fast iteration for a pipeline-heavy service.
-- **Constraints**: correctness matters (report schema), and we want a clean boundary between pipeline and UI.
+- **Constraints**: correctness matters (report schema), and I want a clean boundary between pipeline and UI.
 - **Options**: FastAPI, Django/DRF, Flask.
 - **Trade-offs**:
   - FastAPI + Pydantic makes schemas first-class and keeps handlers lightweight.
   - Django adds batteries (auth/admin/ORM) but is heavier than needed for this project’s current shape.
   - Flask is minimal but you rebuild typing/validation conventions yourself.
 - **Decision**: use **FastAPI + Pydantic** for strong request/response validation and explicit report contracts (`backend/schemas/audit.py`).
-- **Next**: if we add multi-user auth, audit logging, and persistence, Django becomes more attractive; otherwise keep FastAPI and add a DB layer deliberately.
+- **Next**: if I add multi-user auth, audit logging, and persistence, Django becomes more attractive; otherwise keep FastAPI and add a DB layer deliberately.
 
 ### Orchestration: LangGraph state machine vs a linear script
 
 - **Goal**: a pipeline with explicit stages, early exits, and debuggable state.
-- **Constraints**: multiple steps with different failure modes; we want to avoid “giant function” drift.
+- **Constraints**: multiple steps with different failure modes to avoid “giant function” drift.
 - **Options**: LangGraph, a single Python script, Celery pipeline, custom DAG.
 - **Trade-offs**:
   - LangGraph adds a dependency, but makes stages and state explicit and composable.
@@ -133,18 +133,18 @@ This section records the engineering rationale: goal → constraints → options
 - **Constraints**: web variability is enormous; writing and maintaining a crawler is expensive.
 - **Options**: FireCrawl, Playwright-based custom crawler, Requests+BeautifulSoup, other crawl APIs.
 - **Trade-offs**:
-  - A provider like FireCrawl reduces engineering effort but introduces quotas, vendor dependency, and failure modes outside our control.
+  - A provider like FireCrawl reduces engineering effort but introduces quotas, vendor dependency, and failure modes outside my control.
   - A self-managed crawler offers control but is a long-term maintenance commitment.
 - **Decision**: use **FireCrawl** to move effort from “scraping engineering” to “audit quality and safety.”
-- **Next**: add fallback strategies (e.g., retry policies, alternate extraction, PDF ingestion) and surface “what we failed to fetch” clearly in the report.
+- **Next**: add fallback strategies (e.g., retry policies, alternate extraction, PDF ingestion) and surface “what I failed to fetch” clearly in the report.
 
 ### Regulatory source set: minimal FCA corpus vs ingesting every provided document
 
 - **Goal**: ensure regulatory citations are correct, traceable, and consistent with the evidence and the scoring rubric.
 - **Constraints**:
   - ingestion quality matters more than ingestion quantity (chunking, labelling, metadata, and retrieval behaviour)
-  - the more documents we add, the more we must validate retrieval precision to avoid citing irrelevant or outdated material
-  - we want a small, defensible baseline that is easy to keep current
+  - the more documents added, the more the validation retrieval precision to avoid citing irrelevant or outdated material
+  - I want a small, defensible baseline that is easy to keep current
 - **Options**:
   - ingest the full list of FCA documents up front (guidance, good practice reports, portfolio letters, thematic reviews)
   - start with a minimal “core” set and expand iteratively with evaluation coverage
@@ -165,7 +165,7 @@ This section records the engineering rationale: goal → constraints → options
   - Local Chroma is easy for dev and demos, but not ideal for multi-instance production without durable backing.
   - Managed vector DBs scale better but add cost and operational complexity.
 - **Decision**: use **local ChromaDB** for the current stage of the project.
-- **Next**: for production/multi-instance deployments, move to **pgvector** (if we already want Postgres) or a managed vector store with explicit index versioning.
+- **Next**: for production/multi-instance deployments, move to **pgvector** (if I already want Postgres) or a managed vector store with explicit index versioning.
 
 ### Embeddings: sentence-transformers (all-MiniLM-L6-v2) vs vendor embeddings
 
@@ -181,12 +181,12 @@ This section records the engineering rationale: goal → constraints → options
 ### LLM provider: Groq (cost/latency) vs Claude (quality)
 
 - **Goal**: produce useful, repeatable audits while iterating quickly.
-- **Constraints**: inference cost and rate limits dominate; we need predictable runtime.
+- **Constraints**: inference cost and rate limits dominate; I need predictable runtime.
 - **Options**: Groq, Claude, OpenAI, others.
 - **Trade-offs**:
   - **Claude often produces better narrative quality and nuanced reasoning** for compliance-style writing.
   - **Groq is typically cheaper/faster**, which matters for iteration loops and throughput.
-- **Decision**: use **Groq as the default** for cost/latency, while keeping prompts + schemas provider-agnostic so we can swap providers.
+- **Decision**: use **Groq as the default** for cost/latency, while keeping prompts + schemas provider-agnostic so I can swap providers.
 - **Next**: introduce **tiered routing**: use Groq for baseline, and escalate to Claude for “hard” cases (low confidence, complex pages, ambiguous evidence) where quality is worth the cost.
 
 ### Sync request vs queue-based processing

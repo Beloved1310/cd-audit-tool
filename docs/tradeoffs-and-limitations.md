@@ -2,8 +2,8 @@
 
 This document makes the design choices explicit:
 
-- what we optimised for
-- what we gave up
+- what optimised for
+- what gave up
 - where the edge cases are
 
 ## Evidence scope limitations
@@ -47,14 +47,14 @@ The pipeline returns `INSUFFICIENT_DATA` when the crawl is too shallow.
 
 ### Checklist scoring vs holistic judgement
 
-We use criteria checklists per outcome, then sum to 0–10.
+criteria checklists per outcome, then sum to 0–10.
 
 - **Pro**: auditable, comparatively stable, and actionable.
 - **Con**: can miss nuanced harms that don’t map cleanly to a single criterion; can overfit to “what the checklist asks for”.
 
 ### Verbatim evidence requirement
 
-We require exact quotes from crawled pages.
+require exact quotes from crawled pages.
 
 - **Pro**: forces grounding; makes review easier.
 - **Con**: the model may under-specify issues where the harm is primarily visual (hierarchy, contrast, prominence) rather than textual.
