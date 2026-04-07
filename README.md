@@ -8,7 +8,7 @@ It produces outcome-level scores and evidence for all four Consumer Duty outcome
 
 ## Design notes (architecture, trade-offs, scale)
 
-why it’s built this way, trade-offs, improvements, scale: start here:
+why it is built this way, trade-offs, improvements, scale: start here:
 
 - `docs/features.md`
 - `docs/architecture.md`
