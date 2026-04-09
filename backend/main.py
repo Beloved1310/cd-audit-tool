@@ -24,6 +24,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from backend.cache.report_cache import cache_report, clear_cache, get_cached_report
+from backend.cache.inflight_lock import acquire_inflight_lock, release_inflight_lock
 from backend.pipeline.versioning import compute_pipeline_version
 from backend.ingestion.fca_loader import get_retriever, load_fca_docs
 from backend.observability import (
@@ -444,6 +445,16 @@ def audit(req: AuditRequest):
             headers={"X-Cache": "HIT"},
         )
 
+    lock_key = hashlib.md5(
+        f"audit|{canonical_url(url)}|{app.state.pipeline_version}".encode("utf-8"),
+    ).hexdigest()
+    lock = acquire_inflight_lock(key=lock_key)
+    if lock is None:
+        raise HTTPException(
+            status_code=409,
+            detail="Audit already in progress for this URL. Try again shortly.",
+        )
+
     logger.info("Starting audit for %s", url)
     t0 = time.perf_counter()
     try:
@@ -459,6 +470,11 @@ def audit(req: AuditRequest):
             status_code=500,
             detail={"error": str(e), "url": url},
         ) from e
+    finally:
+        try:
+            release_inflight_lock(lock)
+        except Exception:  # noqa: BLE001
+            pass
 
     duration = time.perf_counter() - t0
     inc_metric("audit_post_total")

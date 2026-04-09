@@ -1,5 +1,7 @@
 import os
 import tempfile
+import threading
+import time
 import unittest
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -92,6 +94,47 @@ class TestSqliteCacheEndpointsIntegration(unittest.TestCase):
 
                 r2 = client.get("/audit/report", params={"url": url})
                 self.assertEqual(r2.status_code, 404)
+
+    def test_concurrent_post_audit_overlap_returns_409_for_second_request(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_path = os.path.join(td, "audit-cache.sqlite")
+            url = "https://example.com"
+
+            import backend.main as main
+            from backend.schemas.audit import AuditStatus, InsufficientDataReport
+
+            def slow_audit(**_):
+                time.sleep(0.4)
+                return InsufficientDataReport(
+                    insufficient_data=True,
+                    url=url,
+                    audited_at=datetime.now(timezone.utc),
+                    pipeline_version="pv",
+                    status=AuditStatus.INSUFFICIENT_DATA,
+                    reason="test",
+                    pages_crawled=[],
+                    total_words_analysed=0,
+                )
+
+            with patch.object(main, "get_or_run_audit", side_effect=slow_audit):
+                results: list[int] = []
+                barrier = threading.Barrier(3)
+
+                def worker():
+                    with self._client(db_path=db_path) as client:
+                        barrier.wait()
+                        r = client.post("/audit", json={"url": url})
+                        results.append(r.status_code)
+
+                t1 = threading.Thread(target=worker)
+                t2 = threading.Thread(target=worker)
+                t1.start()
+                t2.start()
+                barrier.wait()
+                t1.join()
+                t2.join()
+
+                self.assertCountEqual(results, [200, 409])
 
 
 if __name__ == "__main__":
