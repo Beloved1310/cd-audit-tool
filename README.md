@@ -97,6 +97,14 @@ In one terminal:
 uvicorn backend.main:app --reload --port 8000
 ```
 
+## OpenAPI (API documentation)
+
+When the backend is running locally on port 8000:
+
+- Swagger UI: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
+- OpenAPI JSON: `http://localhost:8000/openapi.json`
+
 In a second terminal:
 
 ```bash
