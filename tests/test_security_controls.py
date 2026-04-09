@@ -81,10 +81,15 @@ class TestCacheSafety(unittest.TestCase):
         import backend.cache.report_cache as rc
 
         with tempfile.TemporaryDirectory() as td:
-            rc.CACHE_DIR = Path(td).resolve()
-            # A valid MD5 should resolve inside CACHE_DIR
+            prev = os.environ.get("AUDIT_CACHE_DIR")
+            os.environ["AUDIT_CACHE_DIR"] = td
+            # A valid MD5 should resolve inside AUDIT_CACHE_DIR
             p = rc._path_for_hash("0" * 32)  # noqa: SLF001
-            self.assertEqual(p.parent, rc.CACHE_DIR)
+            self.assertEqual(p.parent, Path(td).resolve())
+            if prev is None:
+                os.environ.pop("AUDIT_CACHE_DIR", None)
+            else:
+                os.environ["AUDIT_CACHE_DIR"] = prev
 
 
 if __name__ == "__main__":

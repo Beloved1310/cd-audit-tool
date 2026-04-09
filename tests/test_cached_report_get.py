@@ -1,4 +1,5 @@
 import os
+import tempfile
 import unittest
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -9,6 +10,16 @@ from unittest.mock import patch
 class TestCachedReportGet(unittest.TestCase):
     def setUp(self):
         os.environ.setdefault("GROQ_API_KEY", "test-key")
+        self._tmp_cache = tempfile.TemporaryDirectory()
+        self._prev_cache_dir = os.environ.get("AUDIT_CACHE_DIR")
+        os.environ["AUDIT_CACHE_DIR"] = self._tmp_cache.name
+
+    def tearDown(self):
+        if self._prev_cache_dir is None:
+            os.environ.pop("AUDIT_CACHE_DIR", None)
+        else:
+            os.environ["AUDIT_CACHE_DIR"] = self._prev_cache_dir
+        self._tmp_cache.cleanup()
 
     @contextmanager
     def _client(self):

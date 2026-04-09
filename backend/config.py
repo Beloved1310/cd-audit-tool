@@ -26,6 +26,15 @@ class Settings(BaseSettings):
     fca_docs_dir: Path = Field(default=Path("./fca_docs"), alias="FCA_DOCS_DIR")
     chroma_persist_dir: Path = Field(default=Path("./chroma_db"), alias="CHROMA_PERSIST_DIR")
     audit_cache_dir: Path = Field(default=Path("./audit_cache"), alias="AUDIT_CACHE_DIR")
+    audit_cache_db_url: str = Field(
+        default="",
+        alias="AUDIT_CACHE_DB_URL",
+        description=(
+            "Optional database URL for audit report cache. "
+            "If set (e.g. sqlite:////absolute/path/to/cache.sqlite), "
+            "the cache uses SQLite instead of the file-based JSON cache."
+        ),
+    )
 
     crawl_page_limit: int = Field(default=15, ge=1, le=100, alias="CRAWL_PAGE_LIMIT")
     max_page_chars: int = Field(default=40_000, ge=1_000, le=500_000, alias="MAX_PAGE_CHARS")
