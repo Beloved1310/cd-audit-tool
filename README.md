@@ -134,7 +134,7 @@ The backend includes SSRF protection on submitted URLs, prompt injection mitigat
 
 ## Tests
 
-This repository includes a small `unittest` suite that covers SSRF validation, prompt injection sanitisation, cache safety, and an integration check that `X-Request-ID` is present on both 200 and 422 API responses.
+This repository includes a small `unittest` suite that covers SSRF validation, prompt injection sanitisation, cache safety, end-to-end integration checks (including an SQLite-backed cache integration test), and an integration check that `X-Request-ID` is present on both 200 and 422 API responses.
 
 Run:
 
