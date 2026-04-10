@@ -43,14 +43,21 @@ class TestUrlSafety(unittest.TestCase):
         self.assertEqual(reason, "")
 
     def test_allow_private_escape_hatch(self):
+        from backend.config import get_settings
         from backend.security.url_safety import validate_public_url
 
+        prev = os.environ.get("ALLOW_PRIVATE_URLS")
         os.environ["ALLOW_PRIVATE_URLS"] = "true"
+        get_settings.cache_clear()
         try:
             ok, _ = validate_public_url("http://localhost:8000/")
             self.assertTrue(ok)
         finally:
-            os.environ.pop("ALLOW_PRIVATE_URLS", None)
+            if prev is None:
+                os.environ.pop("ALLOW_PRIVATE_URLS", None)
+            else:
+                os.environ["ALLOW_PRIVATE_URLS"] = prev
+            get_settings.cache_clear()
 
 
 class TestPromptInjectionSanitiser(unittest.TestCase):

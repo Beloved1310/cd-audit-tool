@@ -7,14 +7,11 @@ metadata IPs. These helpers enforce a "public internet only" policy.
 
 from __future__ import annotations
 
-import os
 import socket
 from ipaddress import ip_address
 from urllib.parse import urlparse
 
-def _env_flag(name: str) -> bool:
-    v = (os.environ.get(name) or "").strip().lower()
-    return v in {"1", "true", "yes", "y", "on"}
+from backend.config import get_settings
 
 
 def _is_ip_blocked(ip: str) -> bool:
@@ -37,10 +34,11 @@ def validate_public_url(url: str) -> tuple[bool, str]:
 
     Returns (ok, reason). If ok is True, reason is "".
 
-    ALLOW_PRIVATE_URLS can be enabled for controlled environments to bypass SSRF protections.
+    Set ALLOW_PRIVATE_URLS via application settings (.env) only in trusted lab
+    environments; it disables DNS/IP SSRF checks for submitted crawl URLs.
     """
 
-    if _env_flag("ALLOW_PRIVATE_URLS"):
+    if get_settings().allow_private_urls:
         return True, ""
 
     raw = (url or "").strip()

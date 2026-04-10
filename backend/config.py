@@ -43,7 +43,22 @@ class Settings(BaseSettings):
 
     allow_private_urls: bool = Field(default=False, alias="ALLOW_PRIVATE_URLS")
 
+    cors_allow_origins: str = Field(
+        default="http://localhost:3000",
+        alias="CORS_ALLOW_ORIGINS",
+    )
+    hsts_max_age_seconds: int = Field(
+        default=0,
+        ge=0,
+        le=63072000,
+        alias="HSTS_MAX_AGE_SECONDS",
+    )
+
     cache_key_version: str = Field(default="v2", alias="CACHE_KEY_VERSION")
+
+    def cors_origin_list(self) -> list[str]:
+        parts = [x.strip() for x in (self.cors_allow_origins or "").split(",") if x.strip()]
+        return parts if parts else ["http://localhost:3000"]
 
 
 @lru_cache(maxsize=1)

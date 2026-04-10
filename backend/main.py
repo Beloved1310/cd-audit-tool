@@ -104,6 +104,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         resp.headers.setdefault("X-Content-Type-Options", "nosniff")
         resp.headers.setdefault("X-Frame-Options", "DENY")
         resp.headers.setdefault("Referrer-Policy", "no-referrer")
+        hsts = get_settings().hsts_max_age_seconds
+        if hsts > 0:
+            resp.headers.setdefault("Strict-Transport-Security", f"max-age={hsts}")
         return resp
 
 
@@ -261,7 +264,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):  # noqa
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=_SETTINGS.cors_origin_list(),
     allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["*"],
 )
