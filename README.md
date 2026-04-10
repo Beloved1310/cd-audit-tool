@@ -7,8 +7,7 @@ This tool accepts a UK financial services website URL and generates a structured
 It produces outcome-level scores and evidence for all four Consumer Duty outcomes: Products & Services (PRIN 2A.2), Price & Value (PRIN 2A.3), Consumer Understanding (PRIN 2A.4), and Consumer Support (PRIN 2A.5). Products & Services and Price & Value are scored from public website evidence only and should be treated as partial where internal firm data is required.
 
 ## Design notes (architecture, trade-offs, scale)
-
-why it is built this way, trade-offs, improvements, scale: start here:
+why it is built this way, trade-offs, improvements, scale: atart here:
 
 - `docs/features.md`
 - `docs/architecture.md`
@@ -23,6 +22,9 @@ After the first submission, I made the following changes to improve reliability,
 ### Apr 10, 2026
 
 - **fix: blocking audit code**: removed blocking behaviour in the audit execution path to prevent requests stalling under load and to keep latency predictable.
+- **feat: Adding centralized 5xx sanitization in exception handlers and replacing the journey 500 dict with a generic string**: reduced the risk of leaking internal exception details in 500 responses, and made error payloads consistent across endpoints.
+- **feat: add admin key for cache delete**: restricted cache deletion to authorised callers to reduce accidental or malicious cache invalidation.
+- **feat: align config and test**: aligned configuration defaults/fixtures with the test suite so local runs and CI behave consistently and regressions are caught earlier.
 
 ### Apr 9, 2026
 
