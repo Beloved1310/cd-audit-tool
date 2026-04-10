@@ -195,28 +195,54 @@ app.add_middleware(AuditRateLimitMiddleware)
 app.add_middleware(RequestIdMiddleware)
 
 
+def _public_http_error_body(request: Request, exc: HTTPException | StarletteHTTPException) -> dict:
+    rid = _request_id(request)
+    status = exc.status_code
+    if status >= 500:
+        logger.warning(
+            "http_error suppressed for client status=%s request_id=%s detail=%r",
+            status,
+            rid,
+            exc.detail,
+        )
+        return {
+            "error": {
+                "type": "http_error",
+                "message": "Something went wrong. Please try again later.",
+            },
+            "request_id": rid,
+        }
+    if isinstance(exc.detail, str):
+        return {
+            "error": {"type": "http_error", "message": exc.detail},
+            "request_id": rid,
+        }
+    return {
+        "error": {
+            "type": "http_error",
+            "message": "Request failed",
+            "detail": exc.detail,
+        },
+        "request_id": rid,
+    }
+
+
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
-    msg = exc.detail if isinstance(exc.detail, str) else "Request failed"
+    body = _public_http_error_body(request, exc)
     return JSONResponse(
         status_code=exc.status_code,
-        content={
-            "error": {"type": "http_error", "message": msg, "detail": exc.detail},
-            "request_id": _request_id(request),
-        },
+        content=body,
         headers={"X-Request-ID": _request_id(request)},
     )
 
 
 @app.exception_handler(StarletteHTTPException)
 async def starlette_http_exception_handler(request: Request, exc: StarletteHTTPException):
-    msg = str(exc.detail) if exc.detail is not None else "Request failed"
+    body = _public_http_error_body(request, exc)
     return JSONResponse(
         status_code=exc.status_code,
-        content={
-            "error": {"type": "http_error", "message": msg, "detail": exc.detail},
-            "request_id": _request_id(request),
-        },
+        content=body,
         headers={"X-Request-ID": _request_id(request)},
     )
 
@@ -548,7 +574,7 @@ def audit_journey(req: JourneyRequest):
         logger.exception("Journey audit failed")
         raise HTTPException(
             status_code=500,
-            detail={"error": str(e)},
+            detail="Journey audit could not be completed",
         ) from e
 
 
