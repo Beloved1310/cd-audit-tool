@@ -16,6 +16,20 @@ why it is built this way, trade-offs, improvements, scale: start here:
 - `docs/scaling-and-production.md`
 - `docs/evaluation.md`
 
+## Post-submission changes (what changed and why)
+
+After the first submission, I made the following changes to improve reliability, maintainability, and operational confidence:
+
+### Apr 10, 2026
+
+- **fix: blocking audit code**: removed blocking behaviour in the audit execution path to prevent requests stalling under load and to keep latency predictable.
+
+### Apr 9, 2026
+
+- **feat: add OpenAPI docs**: improved API discoverability and made the contract easier to review and test via generated OpenAPI.
+- **feat: added inflight lock for concurrency**: prevented duplicate in-flight work for the same request inputs (reduces cost and stabilises behaviour under parallel submissions).
+- **test: add SQLite-backed cache integration test**: added an integration test to validate cache persistence/behaviour end-to-end and reduce regression risk.
+
 ## How It Works
 
 The backend crawls the site using FireCrawl and extracts clean markdown text from up to 15 pages. A validation gate requires at least 3 pages and 2,000 words; otherwise the pipeline returns an `INSUFFICIENT_DATA` report.
