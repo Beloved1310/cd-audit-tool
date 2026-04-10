@@ -10,6 +10,7 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
+from functools import partial
 
 from dotenv import load_dotenv
 import httpx
@@ -426,7 +427,7 @@ def get_compare_report(
 
 
 @app.post("/audit")
-def audit(req: AuditRequest):
+async def audit(req: AuditRequest):
     url = req.url.strip()
     ok, reason = validate_public_url(url)
     if not ok:
@@ -458,17 +459,19 @@ def audit(req: AuditRequest):
     logger.info("Starting audit for %s", url)
     t0 = time.perf_counter()
     try:
-        report = get_or_run_audit(
+        run = partial(
+            get_or_run_audit,
             url=url,
             retriever=app.state.retriever,
             pipeline_version=app.state.pipeline_version,
             http_client=app.state.http_client,
         )
+        report = await asyncio.to_thread(run)
     except Exception as e:  # noqa: BLE001
         logger.exception("Audit failed for %s", url)
         raise HTTPException(
             status_code=500,
-            detail={"error": str(e), "url": url},
+            detail="Audit could not be completed",
         ) from e
     finally:
         try:
