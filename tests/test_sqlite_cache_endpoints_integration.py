@@ -16,7 +16,13 @@ class TestSqliteCacheEndpointsIntegration(unittest.TestCase):
     @contextmanager
     def _client(self, *, db_path: str):
         prev_db_url = os.environ.get("AUDIT_CACHE_DB_URL")
+        prev_admin = os.environ.get("ADMIN_API_KEY")
+        os.environ["ADMIN_API_KEY"] = "integration-test-admin-key"
         os.environ["AUDIT_CACHE_DB_URL"] = f"sqlite:////{db_path.lstrip('/')}"
+
+        from backend.config import get_settings
+
+        get_settings.cache_clear()
 
         import backend.main as main
 
@@ -38,6 +44,13 @@ class TestSqliteCacheEndpointsIntegration(unittest.TestCase):
                         os.environ.pop("AUDIT_CACHE_DB_URL", None)
                     else:
                         os.environ["AUDIT_CACHE_DB_URL"] = prev_db_url
+                    if prev_admin is None:
+                        os.environ.pop("ADMIN_API_KEY", None)
+                    else:
+                        os.environ["ADMIN_API_KEY"] = prev_admin
+                    from backend.config import get_settings
+
+                    get_settings.cache_clear()
 
     def _seed_report(self, *, client, url: str):
         pv = client.get("/health").json()["pipeline_version"]
@@ -88,12 +101,40 @@ class TestSqliteCacheEndpointsIntegration(unittest.TestCase):
                 r1 = client.get("/audit/report", params={"url": url})
                 self.assertEqual(r1.status_code, 200)
 
-                d = client.delete("/audit/cache", params={"url": url})
+                d = client.delete(
+                    "/audit/cache",
+                    params={"url": url},
+                    headers={"X-Admin-Key": "integration-test-admin-key"},
+                )
                 self.assertEqual(d.status_code, 200)
                 self.assertEqual(d.json().get("deleted"), 1)
 
                 r2 = client.get("/audit/report", params={"url": url})
                 self.assertEqual(r2.status_code, 404)
+
+    def test_delete_cache_without_admin_header_returns_401(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_path = os.path.join(td, "audit-cache.sqlite")
+            url = "https://example.com"
+
+            with self._client(db_path=db_path) as client:
+                self._seed_report(client=client, url=url)
+                d = client.delete("/audit/cache", params={"url": url})
+                self.assertEqual(d.status_code, 401)
+
+    def test_delete_cache_wrong_admin_key_returns_401(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_path = os.path.join(td, "audit-cache.sqlite")
+            url = "https://example.com"
+
+            with self._client(db_path=db_path) as client:
+                self._seed_report(client=client, url=url)
+                d = client.delete(
+                    "/audit/cache",
+                    params={"url": url},
+                    headers={"X-Admin-Key": "wrong-key"},
+                )
+                self.assertEqual(d.status_code, 401)
 
     def test_concurrent_post_audit_overlap_returns_409_for_second_request(self):
         with tempfile.TemporaryDirectory() as td:

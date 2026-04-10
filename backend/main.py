@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import logging
 import os
+import secrets
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -15,7 +16,7 @@ from functools import partial
 from dotenv import load_dotenv
 import httpx
 from backend.config import get_settings
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -551,8 +552,35 @@ def audit_journey(req: JourneyRequest):
         ) from e
 
 
+def require_admin_api_key(
+    x_admin_key: str | None = Header(default=None, alias="X-Admin-Key"),
+    authorization: str | None = Header(default=None),
+) -> None:
+    expected = get_settings().admin_api_key.strip()
+    if not expected:
+        raise HTTPException(
+            status_code=403,
+            detail="Cache administration is disabled. Set ADMIN_API_KEY in the server environment.",
+        )
+    provided = (x_admin_key or "").strip()
+    if not provided and authorization:
+        auth = authorization.strip()
+        if auth.lower().startswith("bearer "):
+            provided = auth[7:].strip()
+    if not provided:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required. Send X-Admin-Key or Authorization: Bearer <token>.",
+        )
+    if not secrets.compare_digest(provided, expected):
+        raise HTTPException(status_code=401, detail="Invalid admin credentials.")
+
+
 @app.delete("/audit/cache", response_model=CacheDeleteResponse)
-def delete_audit_cache(url: str | None = Query(None)):
+def delete_audit_cache(
+    _: None = Depends(require_admin_api_key),
+    url: str | None = Query(None),
+):
     if url is None:
         n = clear_cache(None)
     else:

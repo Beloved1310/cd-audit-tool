@@ -22,6 +22,7 @@ class Settings(BaseSettings):
 
     groq_api_key: str = Field(default="", alias="GROQ_API_KEY")
     firecrawl_api_key: str = Field(default="", alias="FIRECRAWL_API_KEY")
+    admin_api_key: str = Field(default="", alias="ADMIN_API_KEY")
 
     fca_docs_dir: Path = Field(default=Path("./fca_docs"), alias="FCA_DOCS_DIR")
     chroma_persist_dir: Path = Field(default=Path("./chroma_db"), alias="CHROMA_PERSIST_DIR")
