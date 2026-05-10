@@ -1,0 +1,10 @@
+{
+  "cases": [
+    {
+      "fixture_id": "sample_audit_report",
+      "report_path": "tests/fixtures/sample_audit_report.json",
+      "min_harness_score": 95,
+      "notes": "Synthetic complete report; high evidence density. Add real frozen audits here."
+    }
+  ]
+}

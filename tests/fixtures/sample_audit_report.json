@@ -1,0 +1,110 @@
+{
+  "insufficient_data": false,
+  "url": "https://example-bank.test/",
+  "audited_at": "2025-06-01T12:00:00Z",
+  "pipeline_version": "eval_fixture_v1",
+  "status": "complete",
+  "overall_rating": "GREEN",
+  "overall_score": 8,
+  "pages_crawled": ["https://example-bank.test/", "https://example-bank.test/pricing"],
+  "total_words_analysed": 8000,
+  "crawl_duration_seconds": 12.5,
+  "pipeline_duration_seconds": 90.0,
+  "insufficient_data_reason": null,
+  "dark_patterns": [],
+  "vulnerability_gaps": [],
+  "outcomes": [
+    {
+      "outcome_name": "Products & Services",
+      "rating": "GREEN",
+      "score": 8,
+      "confidence": "high",
+      "confidence_note": "Fixture.",
+      "summary": "Fixture summary P&S.",
+      "criteria_scores": [
+        {
+          "criterion_id": 1,
+          "criterion_name": "Product clarity",
+          "max_points": 10,
+          "awarded_points": 8,
+          "met": false,
+          "evidence": "Key features described in plain language.",
+          "page_url": "https://example-bank.test/products"
+        }
+      ],
+      "findings": [
+        {
+          "description": "Minor gap in target market wording.",
+          "page_url": "https://example-bank.test/products",
+          "evidence_text": "For UK residents aged 18+.",
+          "fca_reference": "FG22/5, p.1 (retrieved chunk)",
+          "severity": "minor"
+        }
+      ],
+      "recommendations": ["Clarify target market on product hub."]
+    },
+    {
+      "outcome_name": "Price & Value",
+      "rating": "GREEN",
+      "score": 8,
+      "confidence": "high",
+      "confidence_note": "Fixture.",
+      "summary": "Fixture summary P&V.",
+      "criteria_scores": [
+        {
+          "criterion_id": 1,
+          "criterion_name": "Price transparency",
+          "max_points": 10,
+          "awarded_points": 8,
+          "met": false,
+          "evidence": "APR shown on product page.",
+          "page_url": "https://example-bank.test/pricing"
+        }
+      ],
+      "findings": [],
+      "recommendations": []
+    },
+    {
+      "outcome_name": "Consumer Understanding",
+      "rating": "GREEN",
+      "score": 8,
+      "confidence": "high",
+      "confidence_note": "Fixture.",
+      "summary": "Fixture summary CU.",
+      "criteria_scores": [
+        {
+          "criterion_id": 1,
+          "criterion_name": "Plain language",
+          "max_points": 10,
+          "awarded_points": 8,
+          "met": false,
+          "evidence": "Summary box at top of page.",
+          "page_url": "https://example-bank.test/"
+        }
+      ],
+      "findings": [],
+      "recommendations": []
+    },
+    {
+      "outcome_name": "Consumer Support",
+      "rating": "GREEN",
+      "score": 8,
+      "confidence": "high",
+      "confidence_note": "Fixture.",
+      "summary": "Fixture summary CS.",
+      "criteria_scores": [
+        {
+          "criterion_id": 1,
+          "criterion_name": "Contact options",
+          "max_points": 10,
+          "awarded_points": 8,
+          "met": false,
+          "evidence": "Phone and chat linked in footer.",
+          "page_url": "https://example-bank.test/support"
+        }
+      ],
+      "findings": [],
+      "recommendations": []
+    }
+  ]
+}

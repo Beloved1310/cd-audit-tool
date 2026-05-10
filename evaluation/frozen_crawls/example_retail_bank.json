@@ -1,0 +1,62 @@
+{
+  "site_id": "example_retail_bank",
+  "url": "https://example-retail-bank.test/",
+  "frozen_at": "2026-05-10T10:00:00+00:00",
+  "crawl_result": {
+    "total_words": 6200,
+    "duration_seconds": 11.3,
+    "crawl_method": "frozen_replay",
+    "errors": [],
+    "pages": [
+      {
+        "url": "https://example-retail-bank.test/",
+        "title": "Example Retail Bank — Current Accounts & Savings",
+        "content": "Welcome to Example Retail Bank. We offer current accounts, savings accounts, and personal loans to UK residents aged 18 and over.\n\nOur Standard Current Account has no monthly fee. An overdraft facility is available subject to eligibility. Arranged overdraft interest rate: 39.9% EAR variable. Unarranged overdraft charges apply — see our fees page for full details.\n\nSavings: Our Easy Access Saver pays 4.1% AER/gross (variable). Rate correct as of 1 April 2026 and may change.\n\nImportant: if you go into an unarranged overdraft, additional daily fees of £8 apply, capped at £80 per month.\n\nFor full terms and conditions, see the documents section below. Key product information is available in our Summary Box.",
+        "word_count": 112,
+        "crawled_at": "2026-05-10T09:58:00+00:00"
+      },
+      {
+        "url": "https://example-retail-bank.test/current-accounts",
+        "title": "Current Accounts — Example Retail Bank",
+        "content": "Standard Current Account\nMonthly fee: £0\nInterest on credit balances: 0% AER\nArranged overdraft: 39.9% EAR variable. You must apply and be accepted. Your limit will be set based on your credit assessment.\nUnarranged overdraft: £8 per day, capped at £80 per month. We will send you an alert before charging.\n\nPremium Current Account\nMonthly fee: £12\nIncludes: travel insurance, mobile phone insurance, and a linked savings pot earning 4.5% AER.\nArranged overdraft: 19.9% EAR variable.\n\nSummary Box: A pre-contractual summary document is provided before you apply. Available to download below.\n[Download Summary Box PDF]\n\nThis product is designed for UK adults aged 18+ who need day-to-day banking. It is not suitable as a primary account for businesses.\n\nWe review our rates regularly. Previous customers on closed products will be written to with any changes.",
+        "word_count": 148,
+        "crawled_at": "2026-05-10T09:58:10+00:00"
+      },
+      {
+        "url": "https://example-retail-bank.test/fees",
+        "title": "Fees & Charges — Example Retail Bank",
+        "content": "Full fee schedule — Standard Current Account\n\nMonthly account fee: £0\nCash withdrawal (ATM, UK): Free\nCash withdrawal (ATM, abroad): 2.99% of amount (min £2)\nPaper statements: £2.50 per statement\nReplacement card: £5\nStopped cheque: £12.50\n\nOverdraft charges\nArranged overdraft interest: 39.9% EAR variable, calculated daily.\nUnarranged overdraft daily charge: £8/day (cap: £80/calendar month)\nReturned item fee: £15 per item if a payment fails due to insufficient funds\n\nBenchmark comparison: Our arranged overdraft rate of 39.9% EAR compares to a market average of approximately 33–40% EAR for similar accounts. We encourage you to shop around using comparison sites.\n\nAll charges are debited from your account on the last working day of the month.",
+        "word_count": 130,
+        "crawled_at": "2026-05-10T09:58:20+00:00"
+      },
+      {
+        "url": "https://example-retail-bank.test/support",
+        "title": "Help & Support — Example Retail Bank",
+        "content": "How to contact us\nPhone: 0800 123 4567 (free from UK mobiles and landlines)\nAvailable: Monday–Friday 8am–8pm, Saturday 9am–5pm. Closed Sundays and bank holidays.\nIn-branch: See branch finder for locations and opening hours.\nOnline chat: Available in our app and online banking, Monday–Saturday 8am–6pm.\n\nMaking a complaint\nWe take complaints seriously. You can complain by phone, in writing, or via our online complaints form. We will acknowledge your complaint within 5 business days and issue a final response within 8 weeks. If you are not satisfied with our response, you can refer your complaint to the Financial Ombudsman Service (FOS) free of charge.\n\nFinancial difficulty and vulnerable customers\nIf you are experiencing financial difficulty, please contact us as early as possible. We have a dedicated team available Monday–Friday 9am–5pm. We can discuss options including: payment arrangements, temporary overdraft reduction, referral to free debt advice (StepChange, Citizens Advice).\n\nWe are committed to supporting customers in vulnerable circumstances. Please let us know if you need extra support, such as large-print statements, a trusted third party to manage your account, or British Sign Language (BSL) interpreter support for branch appointments.\n\nAccessibility: Our website meets WCAG 2.1 AA standards. Accessibility statement available at /accessibility.",
+        "word_count": 203,
+        "crawled_at": "2026-05-10T09:58:30+00:00"
+      },
+      {
+        "url": "https://example-retail-bank.test/savings",
+        "title": "Savings Accounts — Example Retail Bank",
+        "content": "Easy Access Saver\nRate: 4.1% AER / 4.02% gross (variable). Rate correct as of 1 April 2026.\nDeposit: £1 minimum, £500,000 maximum.\nAccess: Unlimited withdrawals. No notice period.\nFSCS: Your eligible deposits are protected up to £85,000 by the Financial Services Compensation Scheme (FSCS).\n\nFixed Rate Bond — 1 Year\nRate: 4.6% AER / 4.6% gross (fixed for 12 months from account opening).\nDeposit: £500 minimum, £500,000 maximum.\nAccess: No withdrawals permitted during the fixed term. Early closure not available.\nAt maturity, funds automatically transfer to your Easy Access Saver unless you instruct otherwise.\n\nJunior ISA\nRate: 3.8% AER / 3.8% gross (variable).\nWho it's for: Children aged 0–17. Account held in the child's name, managed by parent or guardian.\nAnnual ISA allowance: £9,000 (2025/26 tax year).\nAccess: Funds locked until the child turns 18.\n\nAll savings rates are reviewed regularly. We will give you at least 14 days' notice before reducing a variable rate.",
+        "word_count": 170,
+        "crawled_at": "2026-05-10T09:58:40+00:00"
+      },
+      {
+        "url": "https://example-retail-bank.test/financial-difficulty",
+        "title": "Financial Difficulty — Example Retail Bank",
+        "content": "Struggling with payments? We're here to help.\n\nIf you're finding it hard to keep up with payments or manage your overdraft, contact us before things get worse. Early contact means more options.\n\nWhat we can offer:\n- A temporary overdraft reduction to help you live within your means\n- A repayment plan for any overdrawn balance\n- A temporary pause on charges (subject to assessment)\n- Signposting to free, independent debt advice\n\nFree debt advice organisations:\n- StepChange Debt Charity: 0800 138 1111 or stepchange.org\n- Citizens Advice: citizensadvice.org.uk\n- National Debtline: 0808 808 4000\n\nWe will not add charges while you are engaging with us in good faith on a repayment plan.\n\nVulnerable customers: if your financial difficulty is linked to a health condition, bereavement, or other life event, please tell us so we can offer additional support.",
+        "word_count": 157,
+        "crawled_at": "2026-05-10T09:58:50+00:00"
+      },
+      {
+        "url": "https://example-retail-bank.test/about",
+        "title": "About Us — Example Retail Bank",
+        "content": "Example Retail Bank is authorised by the Prudential Regulation Authority and regulated by the Financial Conduct Authority and Prudential Regulation Authority. Firm Reference Number: 123456. Registered in England and Wales. Company number: 01234567. Registered office: 1 Bank Street, London, EC2A 1AA.\n\nWe are a member of the Financial Services Compensation Scheme (FSCS). Your eligible deposits up to £85,000 are protected.\n\nFair value: We publish an annual Fair Value Assessment on our website. Our current assessment concludes that our Standard Current Account and savings products represent fair value for our target customers, taking into account the costs of providing the service and the benefits customers receive.\n\nComplaints data: In the first half of 2025, we received 1,240 complaints, of which 62% were resolved within 3 business days. We publish complaints data in line with FCA requirements.",
+        "word_count": 140,
+        "crawled_at": "2026-05-10T09:59:00+00:00"
+      }
+    ]
+  }
+}

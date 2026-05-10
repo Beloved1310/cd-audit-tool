@@ -1,0 +1,147 @@
+{
+  "insufficient_data": false,
+  "url": "https://low-quality-fixture.test/",
+  "audited_at": "2025-06-01T12:00:00Z",
+  "pipeline_version": "eval_fixture_low_quality_v1",
+  "status": "complete",
+  "overall_rating": "GREEN",
+  "overall_score": 9,
+  "pages_crawled": ["https://low-quality-fixture.test/"],
+  "total_words_analysed": 400,
+  "crawl_duration_seconds": 2.0,
+  "pipeline_duration_seconds": 30.0,
+  "insufficient_data_reason": null,
+  "dark_patterns": [
+    {
+      "pattern_type": "hidden_fee",
+      "description": "Processing fee revealed only at checkout.",
+      "page_url": "https://low-quality-fixture.test/checkout",
+      "evidence_text": ""
+    }
+  ],
+  "vulnerability_gaps": [
+    {
+      "gap_type": "support_missing",
+      "description": "No mention of vulnerable customer support.",
+      "fca_reference": ""
+    }
+  ],
+  "outcomes": [
+    {
+      "outcome_name": "Products & Services",
+      "rating": "RED",
+      "score": 3,
+      "confidence": "low",
+      "confidence_note": "Only 1 page crawled; under 5000 words.",
+      "summary": "Very limited evidence of product clarity.",
+      "criteria_scores": [
+        {
+          "criterion_id": 1,
+          "criterion_name": "Product/service purpose and main features are clear.",
+          "max_points": 10,
+          "awarded_points": 3,
+          "met": false,
+          "evidence": "",
+          "page_url": ""
+        }
+      ],
+      "findings": [
+        {
+          "description": "Product purpose is unclear from crawled content.",
+          "page_url": "https://low-quality-fixture.test/",
+          "evidence_text": "",
+          "fca_reference": "",
+          "severity": "moderate"
+        }
+      ],
+      "recommendations": []
+    },
+    {
+      "outcome_name": "Price & Value",
+      "rating": "RED",
+      "score": 3,
+      "confidence": "low",
+      "confidence_note": "Only 1 page crawled; under 5000 words.",
+      "summary": "No price or fee information found.",
+      "criteria_scores": [
+        {
+          "criterion_id": 1,
+          "criterion_name": "Total cost of ownership or main charges are discoverable.",
+          "max_points": 10,
+          "awarded_points": 3,
+          "met": false,
+          "evidence": "",
+          "page_url": ""
+        }
+      ],
+      "findings": [
+        {
+          "description": "No charges or fees visible on crawled pages.",
+          "page_url": "https://low-quality-fixture.test/",
+          "evidence_text": "",
+          "fca_reference": "",
+          "severity": "moderate"
+        }
+      ],
+      "recommendations": []
+    },
+    {
+      "outcome_name": "Consumer Understanding",
+      "rating": "RED",
+      "score": 3,
+      "confidence": "low",
+      "confidence_note": "Only 1 page crawled; under 5000 words.",
+      "summary": "Insufficient content to assess plain language or risk disclosure.",
+      "criteria_scores": [
+        {
+          "criterion_id": 1,
+          "criterion_name": "Key product/service terms explained in plain language.",
+          "max_points": 10,
+          "awarded_points": 3,
+          "met": false,
+          "evidence": "",
+          "page_url": ""
+        }
+      ],
+      "findings": [
+        {
+          "description": "Risk warnings absent from crawled content.",
+          "page_url": "https://low-quality-fixture.test/",
+          "evidence_text": "",
+          "fca_reference": "",
+          "severity": "moderate"
+        }
+      ],
+      "recommendations": []
+    },
+    {
+      "outcome_name": "Consumer Support",
+      "rating": "RED",
+      "score": 3,
+      "confidence": "low",
+      "confidence_note": "Only 1 page crawled; under 5000 words.",
+      "summary": "No contact options or complaints process found.",
+      "criteria_scores": [
+        {
+          "criterion_id": 1,
+          "criterion_name": "Customer service or help contact options are easy to find.",
+          "max_points": 10,
+          "awarded_points": 3,
+          "met": false,
+          "evidence": "",
+          "page_url": ""
+        }
+      ],
+      "findings": [
+        {
+          "description": "No customer support contact visible in crawled pages.",
+          "page_url": "https://low-quality-fixture.test/",
+          "evidence_text": "",
+          "fca_reference": "",
+          "severity": "moderate"
+        }
+      ],
+      "recommendations": []
+    }
+  ]
+}

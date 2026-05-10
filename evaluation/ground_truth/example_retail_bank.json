@@ -1,0 +1,69 @@
+{
+  "site_id": "example_retail_bank",
+  "url": "https://example-retail-bank.test/",
+  "labelled_by": "synthetic_fixture_v1",
+  "labelled_at": "2026-05-10",
+  "notes": "Synthetic fixture representing a reasonably compliant retail bank. Strong on pricing transparency, support, and vulnerability. Weaker on product governance signals and cross-selling disclosure.",
+  "outcomes": {
+    "Products & Services": {
+      "notes": "Product features and target market are clearly stated. Risk warnings present. Governance signal (Fair Value Assessment mention) visible. Slightly weak on conflicts/incentives disclosure.",
+      "criteria": {
+        "1": {"awarded": 1, "note": "Product purpose and features clearly described on product pages."},
+        "2": {"awarded": 1, "note": "Target market stated — UK adults 18+, not suitable for businesses."},
+        "3": {"awarded": 1, "note": "Material risks (overdraft charges, rate variability) described before commitment."},
+        "4": {"awarded": 1, "note": "Fair Value Assessment mentioned on About page."},
+        "5": {"awarded": 1, "note": "Vulnerable customer adaptations referenced (large print, BSL, third party)."},
+        "6": {"awarded": 1, "note": "Online and branch distribution channels described appropriately."},
+        "7": {"awarded": 1, "note": "Closed-book / rate changes mentioned — 14 days notice for variable rate reductions."},
+        "8": {"awarded": 0, "note": "Premium account bundles travel and phone insurance — bundling not clearly disaggregated in pricing."},
+        "9": {"awarded": 1, "note": "Summary Box PDF linked; terms and conditions referenced."},
+        "10": {"awarded": 0, "note": "No explicit conflicts or incentives disclosure visible on public pages."}
+      }
+    },
+    "Price & Value": {
+      "notes": "Full fee schedule visible. APR/AER rates shown. Benchmark comparison included. Introductory/promotional rate signposting weak — no explicit note on what happens after promotional savings rates end.",
+      "criteria": {
+        "1": {"awarded": 1, "note": "Full fee schedule on /fees page with all charges listed."},
+        "2": {"awarded": 1, "note": "AER and EAR rates shown clearly for both credit and savings products."},
+        "3": {"awarded": 1, "note": "Ongoing fees, exit restrictions, and cap on overdraft charges stated."},
+        "4": {"awarded": 1, "note": "Fair Value Assessment published annually; mentioned on About page."},
+        "5": {"awarded": 0, "note": "Fixed Rate Bond matures into Easy Access — no explicit promotional rate expiry warning on product page."},
+        "6": {"awarded": 1, "note": "Benchmark comparison for overdraft rate provided on fees page."},
+        "7": {"awarded": 1, "note": "Rate change notice policy stated — 14 days for variable rate reductions."},
+        "8": {"awarded": 0, "note": "Premium account bundle pricing does not clearly separate insurance costs from account fee."},
+        "9": {"awarded": 1, "note": "Monthly vs daily charge frequency stated. Currency clear."},
+        "10": {"awarded": 1, "note": "No evidence of fees hidden behind unnecessary steps in crawled content."}
+      }
+    },
+    "Consumer Understanding": {
+      "notes": "Plain language used throughout. Risk warnings visible. Key deadlines stated. Navigation structure appears sensible. Some marketing language present but balanced with risk/cost context.",
+      "criteria": {
+        "1": {"awarded": 1, "note": "Plain language used — no excessive legal jargon on product pages."},
+        "2": {"awarded": 1, "note": "Overdraft charges and unarranged fee risks clearly signposted on homepage and product page."},
+        "3": {"awarded": 1, "note": "Costs discoverable before commitment — fees page and product pages both show charges."},
+        "4": {"awarded": 1, "note": "Overdraft alert notification and maturity transfer for Fixed Rate Bond stated."},
+        "5": {"awarded": 1, "note": "Site navigation appears logical — product, fees, support all reachable from crawled pages."},
+        "6": {"awarded": 1, "note": "FSCS protection and rate variability stated on savings pages — balances promotional language."},
+        "7": {"awarded": 1, "note": "Summary Box and Terms available/linked from product pages."},
+        "8": {"awarded": 1, "note": "Language appears appropriate for retail audience — no excessive complexity."},
+        "9": {"awarded": 1, "note": "Contact paths clear; overdraft alert and FOS referral paths described."},
+        "10": {"awarded": 0, "note": "Complaints data published but not prominently surfaced — buried in About page."}
+      }
+    },
+    "Consumer Support": {
+      "notes": "Strong support offering. Multiple channels. Hours stated. Complaints process clear including FOS referral. Dedicated financial difficulty page. Vulnerability support well described. Minor gap: no 24/7 channel for emergencies.",
+      "criteria": {
+        "1": {"awarded": 1, "note": "Phone, branch, and online chat options clearly listed on /support."},
+        "2": {"awarded": 1, "note": "Operating hours stated for each channel."},
+        "3": {"awarded": 1, "note": "Complaints process described with 5-day acknowledgement and 8-week resolution timescale; FOS referral mentioned."},
+        "4": {"awarded": 1, "note": "Dedicated financial difficulty page with specific options and referrals to free debt advice."},
+        "5": {"awarded": 1, "note": "Accessibility statement linked; WCAG 2.1 AA compliance stated."},
+        "6": {"awarded": 1, "note": "Vulnerable customer support described — large print, BSL, third party management."},
+        "7": {"awarded": 1, "note": "Financial difficulty page covers common scenarios. Support page covers account queries."},
+        "8": {"awarded": 1, "note": "FOS referral path described as escalation beyond first-line."},
+        "9": {"awarded": 0, "note": "No fraud or card loss reporting guidance visible in crawled pages."},
+        "10": {"awarded": 1, "note": "No evidence of support journeys being obviously obscured."}
+      }
+    }
+  }
+}
