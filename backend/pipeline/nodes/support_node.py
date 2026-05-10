@@ -50,11 +50,11 @@ def support_node(state: AuditState) -> dict:
     with stage_timer("support_prepare"):
         website_content = sanitise_website_content(build_crawl_markdown(cr, max_chars=10_000))
     with stage_timer("support_retrieve"):
-        docs = retriever.invoke(_QUERY)[:4]
+        docs = retriever.invoke(_QUERY)[:8]
     sources = get_sources_from_docs(docs)
     fca_context = truncate_chars(
         "\n\n".join(d.page_content for d in docs),
-        4_000,
+        8_000,
     )
     fca_sources = format_fca_sources_numbered(sources)
 
