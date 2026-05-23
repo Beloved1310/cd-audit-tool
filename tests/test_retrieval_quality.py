@@ -143,6 +143,11 @@ class TestRetrievalRelevance(unittest.TestCase):
         labels = self._base_labels(_QUERY_PRICE_VALUE)
         self.assertIn("FG22/5", labels, f"FG22/5 not in top results; got {labels}")
 
+    def test_ps22_9_retrievable_with_policy_query(self):
+        """PS22/9 is a smaller doc; a dedicated query must surface it after ingest."""
+        labels = self._base_labels("PS22/9 Consumer Duty policy statement rules framework")
+        self.assertIn("PS22/9", labels, f"PS22/9 not in top results; got {labels}")
+
     def test_understanding_surfaces_understanding_doc(self):
         labels = self._base_labels(_QUERY_UNDERSTANDING)
         expected = {"Consumer Understanding Good Practice", "FG22/5"}

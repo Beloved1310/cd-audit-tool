@@ -19,11 +19,14 @@ def _hash_bytes(parts: list[bytes]) -> str:
 
 def compute_pipeline_version() -> str:
     """Return a short, stable version string for the current pipeline logic."""
+    from backend.config import get_settings
+    from backend.ingestion.fca_loader import corpus_manifest_digest
+
     root = Path(__file__).resolve().parents[1]
     prompts_dir = root / "prompts"
     scorer_path = root / "pipeline" / "scorer.py"
 
-    parts: list[bytes] = [b"cd-audit-pipeline:v1"]
+    parts: list[bytes] = [b"cd-audit-pipeline:v2"]
 
     if scorer_path.is_file():
         parts.append(scorer_path.read_bytes())
@@ -32,6 +35,8 @@ def compute_pipeline_version() -> str:
         for p in sorted(prompts_dir.glob("*.txt")):
             parts.append(p.name.encode("utf-8"))
             parts.append(p.read_bytes())
+
+    parts.append(corpus_manifest_digest(get_settings().fca_docs_dir).encode("utf-8"))
 
     digest = _hash_bytes(parts)
     return f"p_{digest[:12]}"

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 
-from backend.ingestion.fca_loader import get_sources_from_docs
+from backend.ingestion.fca_loader import get_sources_from_docs, merge_retrieved_docs
 from backend.observability import stage_timer
 from backend.pipeline.content_builder import (
     build_crawl_markdown,
@@ -28,6 +28,7 @@ _QUERY = (
     "FG22/5 PS22/9 APR interest total cost comparison "
     "introductory rate sludge transparency"
 )
+_PS22_QUERY = "PS22/9 Consumer Duty policy statement rules framework fair value"
 _OUTCOME_NAME = "Price & Value"
 _SCOPE_NOTE = (
     "Public-website evidence only: a full Price & Value assessment typically requires "
@@ -55,7 +56,7 @@ def price_value_node(state: AuditState) -> dict:
     with stage_timer("price_value_prepare"):
         website_content = sanitise_website_content(build_crawl_markdown(cr, max_chars=10_000))
     with stage_timer("price_value_retrieve"):
-        docs = retriever.invoke(_QUERY)[:8]
+        docs = merge_retrieved_docs(retriever, _QUERY, _PS22_QUERY, k_each=4, max_docs=8)
     sources = get_sources_from_docs(docs)
     fca_context = truncate_chars(
         "\n\n".join(d.page_content for d in docs),

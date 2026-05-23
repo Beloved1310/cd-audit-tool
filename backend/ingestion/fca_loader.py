@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import os
 import sys
 from pathlib import Path
@@ -19,6 +21,7 @@ from backend.config import get_settings
 COLLECTION_NAME = "fca_guidance"
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 200
+CORPUS_MANIFEST_FILENAME = ".fca_corpus_manifest.json"
 
 
 def _persist_dir() -> str:
@@ -31,13 +34,20 @@ def _embeddings() -> HuggingFaceEmbeddings:
     )
 
 
+def _normalized_stem(filename: str) -> str:
+    """Lowercase stem with only alphanumerics (fg22-5 → fg225, PS22_9_ → ps229)."""
+    stem = Path(filename).stem.lower()
+    return "".join(c for c in stem if c.isalnum())
+
+
 def _citation_label(filename: str) -> str:
     """Map PDF filename to a short citation label for prompts and metadata."""
     low = filename.lower()
-    stem = Path(filename).stem
-    if low == "fg22-5.pdf" or stem.lower() == "fg22-5":
+    norm = _normalized_stem(filename)
+    if low == "fg22-5.pdf" or norm in {"fg225", "fg22"}:
         return "FG22/5"
-    if low == "ps22-9.pdf" or stem.lower() == "ps22-9":
+    # ps22-9.pdf, PS22_9_ A new Consumer Duty.pdf, etc.
+    if low == "ps22-9.pdf" or norm.startswith("ps229") or norm == "ps229":
         return "PS22/9"
     if "understanding" in low:
         return "Consumer Understanding Good Practice"
@@ -45,7 +55,50 @@ def _citation_label(filename: str) -> str:
         return "Consumer Support Good Practice"
     if "vulnerable" in low:
         return "FCA Vulnerable Customers Guidance"
-    return stem.replace("-", " ")
+    return Path(filename).stem.replace("-", " ")
+
+
+def corpus_manifest(docs_dir: str | Path) -> dict:
+    """Fingerprint of every PDF in ``docs_dir`` (used for drift detection and versioning)."""
+    folder = Path(docs_dir).resolve()
+    files: list[dict[str, str | int]] = []
+    for pdf_path in sorted(folder.glob("*.pdf")):
+        data = pdf_path.read_bytes()
+        files.append(
+            {
+                "name": pdf_path.name,
+                "size": pdf_path.stat().st_size,
+                "sha256": hashlib.sha256(data).hexdigest(),
+            }
+        )
+    return {"pdf_count": len(files), "files": files}
+
+
+def corpus_manifest_digest(docs_dir: str | Path) -> str:
+    """Stable SHA-256 hex digest of the on-disk FCA PDF set."""
+    payload = json.dumps(corpus_manifest(docs_dir), sort_keys=True).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _manifest_path() -> Path:
+    return Path(_persist_dir()) / CORPUS_MANIFEST_FILENAME
+
+
+def _write_corpus_manifest(docs_dir: Path) -> None:
+    path = _manifest_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(corpus_manifest(docs_dir), indent=2), encoding="utf-8")
+
+
+def _stored_manifest_matches(docs_dir: Path) -> bool:
+    path = _manifest_path()
+    if not path.is_file():
+        return False
+    try:
+        stored = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return False
+    return stored == corpus_manifest(docs_dir)
 
 
 def _human_page_number(metadata: dict) -> int:
@@ -107,9 +160,17 @@ def load_fca_docs(docs_dir: str) -> Chroma:
     )
 
     if _collection_has_documents(chroma):
-        print(
-            f"Collection '{COLLECTION_NAME}' already has documents; skipping re-ingestion.",
-        )
+        if not _stored_manifest_matches(folder):
+            print(
+                f"Collection '{COLLECTION_NAME}' exists but fca_docs/ changed "
+                f"(missing or new PDFs). Re-run with --reset to include all documents:\n"
+                f"  python -m backend.ingestion.fca_loader --reset",
+                file=sys.stderr,
+            )
+        else:
+            print(
+                f"Collection '{COLLECTION_NAME}' already has documents; skipping re-ingestion.",
+            )
         return chroma
 
     pdfs = sorted(folder.glob("*.pdf"))
@@ -154,6 +215,7 @@ def load_fca_docs(docs_dir: str) -> Chroma:
         collection_name=COLLECTION_NAME,
     )
 
+    _write_corpus_manifest(folder)
     print(
         f"Ingestion summary: PDFs processed={len(pdfs)}, total chunks created={len(all_chunks)}",
     )
@@ -167,6 +229,28 @@ def load_fca_docs(docs_dir: str) -> Chroma:
 def get_retriever(chroma: Chroma, k: int = 5) -> VectorStoreRetriever:
     """Top-``k`` similarity retriever returning full :class:`~langchain_core.documents.Document` objects."""
     return chroma.as_retriever(search_kwargs={"k": k})
+
+
+def merge_retrieved_docs(
+    retriever: VectorStoreRetriever,
+    *queries: str,
+    k_each: int = 4,
+    max_docs: int = 8,
+) -> list[Document]:
+    """Run multiple queries and return deduplicated chunks (by citation), preserving order."""
+    seen: set[str] = set()
+    out: list[Document] = []
+    for query in queries:
+        for doc in retriever.invoke(query)[:k_each]:
+            citation = (doc.metadata or {}).get("citation")
+            key = citation if isinstance(citation, str) and citation.strip() else doc.page_content[:80]
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(doc)
+            if len(out) >= max_docs:
+                return out
+    return out
 
 
 def get_sources_from_docs(docs: list[Document]) -> list[str]:
