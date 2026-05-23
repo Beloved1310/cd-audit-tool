@@ -73,14 +73,32 @@ The repo includes an **offline** quality harness (no Groq, no crawl):
 
 This measures **consistency and grounding density**, not regulatory truth vs a human panel. Add more rows to `evaluation/benchmarks/default.json` pointing at frozen real reports as you capture them.
 
+## Scoring accuracy (pipeline vs expert labels)
+
+**`backend/evaluation/accuracy.py`** compares a COMPLETE `AuditReport` to a `GroundTruthLabel` JSON file:
+
+- Outcome-level MAE and RED/AMBER/GREEN agreement
+- Per-criterion agreement on IDs **1–10** from `backend/pipeline/scorer.py`
+
+The live pipeline and ground truth now share the **same fixed checklist**: prompts inject `{scoring_criteria}` from `format_criteria_for_prompt()`, and nodes call `normalize_outcome_criteria()` so every outcome has ten rows for comparison.
+
+| Script / test | Purpose |
+|---------------|---------|
+| `scripts/run_accuracy.py` | Live Groq run on frozen crawls vs labels |
+| `scripts/freeze_crawl.py` | Capture crawl JSON for labelling |
+| `tests/test_accuracy_offline_integration.py` | CI: perfect-agreement path using `audit_report_from_ground_truth()` |
+| `tests/test_accuracy_integration.py` | Optional live run (`GROQ_API_KEY`) |
+| `tests/test_criteria_alignment.py` | Prompts contain checklist placeholder; ten criteria per outcome |
+
+**Harness vs accuracy:** `run_evaluation.py --benchmark` gates structural quality; accuracy gates require expert labels under `evaluation/ground_truth/`. The bundled `example_retail_bank` label is `synthetic_fixture_v1` — use it to validate the math, then add real expert-labelled sites for credible accuracy numbers.
+
 ## Testing strategy (today and next)
 
-Current tests focus on URL safety, injection mitigation, cache safety, request ID propagation, and **evaluation metrics** on frozen reports.
+Current tests cover URL safety, injection mitigation, cache safety, request ID propagation, **evaluation metrics** on frozen reports, **retrieval quality**, **criteria alignment**, and **offline accuracy**.
 
-Next additions that increase confidence:
+Next steps for production-grade accuracy:
 
-- golden-file tests for schema stability (report JSON shape) — partially covered by the sample fixture
-- deterministic replay tests using stored crawl outputs (so tests don’t depend on live websites)
-- retrieval tests that assert FCA chunks are returned for known queries
-- optional: human-labelled expected RAG bands per fixture for accuracy (not implemented)
+- Add more `(frozen_crawl, ground_truth)` pairs with human `labelled_by` metadata
+- Set MAE / rating-agreement thresholds in CI once a stable labelled set exists
+- Run `python scripts/run_accuracy.py` after prompt or corpus changes
 

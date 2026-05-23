@@ -104,14 +104,26 @@ def compare_to_ground_truth(
         for cid_str, crit_label in outcome_label.criteria.items():
             cid = int(cid_str)
             pipeline_awarded = _pipeline_criterion_awarded(report, outcome_name, cid)
-            if pipeline_awarded is not None:
-                agrees = pipeline_awarded == crit_label.awarded
-                criteria_acc.append(CriterionAccuracy(
+            if pipeline_awarded is None:
+                continue
+            agrees = pipeline_awarded == crit_label.awarded
+            criteria_acc.append(
+                CriterionAccuracy(
                     criterion_id=cid,
                     gt_awarded=crit_label.awarded,
                     pipeline_awarded=pipeline_awarded,
                     agrees=agrees,
-                ))
+                ),
+            )
+
+        expected_criteria = len(outcome_label.criteria)
+        if len(criteria_acc) < expected_criteria:
+            missing = expected_criteria - len(criteria_acc)
+            raise ValueError(
+                f"{outcome_name}: pipeline report missing {missing} criterion row(s) "
+                f"(have {len(criteria_acc)}/{expected_criteria}). "
+                "Ensure prompts use the fixed scorer.py checklist (IDs 1–10).",
+            )
 
         agreement_rate = (
             sum(1 for c in criteria_acc if c.agrees) / len(criteria_acc)

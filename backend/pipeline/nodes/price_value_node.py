@@ -15,7 +15,13 @@ from backend.pipeline.content_builder import (
 from backend.pipeline.llm_errors import friendly_eval_error
 from backend.pipeline.groq_llm import chat_groq, invoke_groq
 from backend.pipeline.prompt_loader import load_prompt_text
-from backend.pipeline.scorer import confidence_level, confidence_note
+from backend.pipeline.scorer import (
+    PRICE_VALUE_CRITERIA,
+    confidence_level,
+    confidence_note,
+    format_criteria_for_prompt,
+    normalize_outcome_criteria,
+)
 from backend.pipeline.state import AuditState
 from backend.security.prompt_injection import sanitise_website_content
 from backend.schemas.audit import ConfidenceLevel, OutcomeScore, RAGRating
@@ -72,6 +78,7 @@ def price_value_node(state: AuditState) -> dict:
     formatted_prompt = template.format(
         fca_sources=fca_sources,
         fca_context=fca_context,
+        scoring_criteria=format_criteria_for_prompt(PRICE_VALUE_CRITERIA),
         website_content=website_content,
         output_schema=output_schema,
     )
@@ -84,15 +91,25 @@ def price_value_node(state: AuditState) -> dict:
         if not isinstance(raw, OutcomeGroqOutput):
             raw = OutcomeGroqOutput.model_validate(raw)
         result = outcome_from_groq_output(raw)
+        result = result.model_copy(
+            update={
+                "criteria_scores": normalize_outcome_criteria(
+                    result.criteria_scores,
+                    PRICE_VALUE_CRITERIA,
+                ),
+            },
+        )
     except Exception as e:  # noqa: BLE001
         logger.exception("Price & Value structured output failed")
         result = _failed_outcome(e)
     else:
         conf = confidence_level(len(cr.pages), cr.total_words)
         note = confidence_note(len(cr.pages), cr.total_words)
+        score = sum(c.awarded_points for c in result.criteria_scores)
         result = result.model_copy(
             update={
                 "outcome_name": _OUTCOME_NAME,
+                "score": score,
                 "confidence": conf,
                 "confidence_note": note,
                 "assessment_scope": "public_website_only",

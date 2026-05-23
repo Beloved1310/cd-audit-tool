@@ -7,8 +7,11 @@ These tests do NOT call the LLM or ChromaDB. They verify:
   - summarise_accuracy() aggregates correctly across multiple sites
   - format_accuracy_report() produces non-empty output
 
-The integration test (running the full pipeline against a frozen crawl) is in
-test_accuracy_integration.py and requires GROQ_API_KEY.
+Offline accuracy integration (aligned criterion IDs, no LLM):
+  tests/test_accuracy_offline_integration.py
+
+Live pipeline vs frozen crawl (requires GROQ_API_KEY):
+  tests/test_accuracy_integration.py
 """
 from __future__ import annotations
 
@@ -71,8 +74,10 @@ def _make_criterion(cid: int, awarded: int, max_pts: int = 1) -> CriterionScore:
 
 
 def _make_outcome(name: str, score: int) -> OutcomeScore:
-    # Build one criterion that sums to score (max_points=score gives awarded=score iff score<=10)
-    criteria = [_make_criterion(1, score, max_pts=10)]
+    # Ten binary criteria (IDs 1–10), same shape as scorer.py / ground truth labels.
+    criteria = [
+        _make_criterion(i, 1 if i <= score else 0, max_pts=1) for i in range(1, 11)
+    ]
     return OutcomeScore(
         outcome_name=name,
         rating=RAGRating.GREEN,  # overwritten by validator

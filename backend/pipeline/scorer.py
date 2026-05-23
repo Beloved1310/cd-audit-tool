@@ -104,6 +104,69 @@ def criteria_json(defs: tuple[CriterionDef, ...]) -> str:
     )
 
 
+def format_criteria_for_prompt(defs: tuple[CriterionDef, ...]) -> str:
+    """Numbered checklist for outcome prompts (aligned with ground-truth criterion IDs)."""
+    lines: list[str] = []
+    for d in defs:
+        lines.append(
+            f"Criterion {d.criterion_id} (max {d.max_points} point(s)): {d.name}",
+        )
+    return "\n".join(lines)
+
+
+OUTCOME_CRITERIA: dict[str, tuple[CriterionDef, ...]] = {
+    "Products & Services": PRODUCTS_SERVICES_CRITERIA,
+    "Price & Value": PRICE_VALUE_CRITERIA,
+    "Consumer Understanding": UNDERSTANDING_CRITERIA,
+    "Consumer Support": SUPPORT_CRITERIA,
+}
+
+
+def criteria_defs_for_outcome(outcome_name: str) -> tuple[CriterionDef, ...]:
+    try:
+        return OUTCOME_CRITERIA[outcome_name]
+    except KeyError as e:
+        raise ValueError(f"Unknown outcome for criteria: {outcome_name!r}") from e
+
+
+def normalize_outcome_criteria(
+    criteria_scores: list,
+    defs: tuple[CriterionDef, ...],
+) -> list:
+    """Ensure all checklist rows exist with stable IDs/names (for accuracy vs ground truth)."""
+    from backend.schemas.audit import CriterionScore
+
+    by_id = {c.criterion_id: c for c in criteria_scores}
+    normalized: list[CriterionScore] = []
+    for d in defs:
+        existing = by_id.get(d.criterion_id)
+        if existing is None:
+            normalized.append(
+                CriterionScore(
+                    criterion_id=d.criterion_id,
+                    criterion_name=d.name,
+                    max_points=d.max_points,
+                    awarded_points=0,
+                    met=False,
+                    evidence="No evidence scored for this criterion.",
+                    page_url="",
+                ),
+            )
+            continue
+        pts = min(existing.awarded_points, d.max_points)
+        normalized.append(
+            existing.model_copy(
+                update={
+                    "criterion_name": d.name,
+                    "max_points": d.max_points,
+                    "awarded_points": pts,
+                    "met": pts == d.max_points,
+                },
+            ),
+        )
+    return normalized
+
+
 def max_points(defs: tuple[CriterionDef, ...]) -> int:
     return sum(d.max_points for d in defs)
 
