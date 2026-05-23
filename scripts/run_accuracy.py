@@ -82,7 +82,7 @@ def main() -> None:
 
     settings = get_settings()
     chroma = load_fca_docs(str(settings.fca_docs_dir))
-    retriever = get_retriever(chroma)
+    retriever = get_retriever(chroma, k=settings.rag_retrieval_k)
 
     site_results = []
     for site_id in matched:

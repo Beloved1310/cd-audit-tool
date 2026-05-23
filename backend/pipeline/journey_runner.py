@@ -8,8 +8,8 @@ from datetime import datetime, timezone
 from typing import Any
 
 from backend.crawler.site_crawler import fetch_single_page
-from backend.ingestion.fca_loader import get_sources_from_docs
-from backend.pipeline.content_builder import format_fca_sources_numbered, truncate_chars
+from backend.pipeline.rag_context import build_fca_prompt_context
+from backend.pipeline.content_builder import truncate_chars
 from backend.pipeline.groq_llm import chat_groq, invoke_groq
 from backend.pipeline.llm_errors import friendly_eval_error
 from backend.schemas.audit import DarkPattern
@@ -26,6 +26,7 @@ _JOURNEY_RAG_QUERY = (
     "FCA consumer duty sludge friction dark patterns fair treatment "
     "vulnerable customers clarity pricing support journey"
 )
+_JOURNEY_FG22_QUERY = "FG22/5 PS22/9 consumer duty outcomes fair value understanding"
 
 _MAX_STEP_CHARS = 6_000
 JOURNEY_MAX_STEPS = 10
@@ -137,13 +138,15 @@ def run_journey(
     if len(steps) > JOURNEY_MAX_STEPS:
         raise ValueError(f"At most {JOURNEY_MAX_STEPS} steps allowed")
 
-    docs = retriever.invoke(_JOURNEY_RAG_QUERY)[:4]
-    sources = get_sources_from_docs(docs)
-    fca_context = truncate_chars(
-        "\n\n".join(d.page_content for d in docs),
-        3_000,
+    fca = build_fca_prompt_context(
+        retriever,
+        _JOURNEY_RAG_QUERY,
+        _JOURNEY_FG22_QUERY,
+        max_chunks=6,
+        max_context_chars=3_000,
     )
-    fca_sources = format_fca_sources_numbered(sources)
+    fca_sources = fca.fca_sources
+    fca_context = fca.fca_context
 
     results: list[JourneyStepResult] = []
     total = len(steps)

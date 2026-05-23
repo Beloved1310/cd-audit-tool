@@ -5,8 +5,13 @@ from __future__ import annotations
 import time
 from datetime import datetime, timezone
 
+import logging
+
+from backend.pipeline.scorer import validate_all_outcome_criteria
 from backend.pipeline.state import AuditState
 from backend.schemas.audit import AuditReport, AuditStatus, InsufficientDataReport
+
+logger = logging.getLogger(__name__)
 
 
 def compile_node(state: AuditState) -> dict:
@@ -27,13 +32,21 @@ def compile_node(state: AuditState) -> dict:
     now = datetime.now(timezone.utc)
     pipeline_duration = time.time() - t0
 
+    outcomes = [ps, pv, u, s]
+    criteria_violations = validate_all_outcome_criteria(outcomes)
+    if criteria_violations:
+        logger.warning(
+            "Outcome criteria checklist violations: %s",
+            "; ".join(criteria_violations),
+        )
+
     report = AuditReport(
         insufficient_data=False,
         url=state["url"],
         audited_at=now,
         pipeline_version=str(state.get("pipeline_version") or ""),
         status=AuditStatus.COMPLETE,
-        outcomes=[ps, pv, u, s],
+        outcomes=outcomes,
         dark_patterns=list(state.get("dark_patterns") or []),
         vulnerability_gaps=list(state.get("vulnerability_gaps") or []),
         pages_crawled=[p.url for p in cr.pages],

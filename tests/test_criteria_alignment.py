@@ -14,6 +14,7 @@ _OUTCOME_PROMPTS = (
     "understanding.txt",
     "support.txt",
 )
+_RAG_PROMPTS = ("dark_patterns.txt",)
 
 
 class TestCriteriaAlignment(unittest.TestCase):
@@ -44,6 +45,12 @@ class TestCriteriaAlignment(unittest.TestCase):
         block = format_criteria_for_prompt(defs)
         self.assertIn("Criterion 1", block)
         self.assertIn("Criterion 10", block)
+
+    def test_dark_patterns_prompt_uses_fca_rag_placeholders(self):
+        for name in _RAG_PROMPTS:
+            text = (_PROMPTS / name).read_text(encoding="utf-8")
+            self.assertIn("{fca_sources}", text, msg=name)
+            self.assertIn("{fca_context}", text, msg=name)
 
 
 if __name__ == "__main__":

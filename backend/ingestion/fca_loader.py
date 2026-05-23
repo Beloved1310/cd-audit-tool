@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import backend.env_bootstrap  
+
 import argparse
 import hashlib
 import json
@@ -51,6 +53,8 @@ def _citation_label(filename: str) -> str:
         return "PS22/9"
     if "understanding" in low:
         return "Consumer Understanding Good Practice"
+    if "price" in low and "value" in low:
+        return "Price and Value Good Practice"
     if "support" in low:
         return "Consumer Support Good Practice"
     if "vulnerable" in low:

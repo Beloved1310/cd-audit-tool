@@ -26,6 +26,12 @@ class TestCitationLabels(unittest.TestCase):
             "Consumer Understanding Good Practice",
         )
 
+    def test_price_value_good_practice(self):
+        self.assertEqual(
+            _citation_label("Price and Value Outcome_ Good and Poor Practice update.pdf"),
+            "Price and Value Good Practice",
+        )
+
     def test_portfolio_letter_fallback(self):
         self.assertEqual(
             _citation_label("consumer-duty-letter-credit-brokers.pdf"),

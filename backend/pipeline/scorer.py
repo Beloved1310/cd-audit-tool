@@ -129,6 +129,56 @@ def criteria_defs_for_outcome(outcome_name: str) -> tuple[CriterionDef, ...]:
         raise ValueError(f"Unknown outcome for criteria: {outcome_name!r}") from e
 
 
+def validate_outcome_criteria(
+    outcome_name: str,
+    criteria_scores: list,
+    defs: tuple[CriterionDef, ...],
+) -> list[str]:
+    """Return human-readable violations when checklist rows are missing or misaligned."""
+    from backend.schemas.audit import CriterionScore
+
+    violations: list[str] = []
+    if len(criteria_scores) != len(defs):
+        violations.append(
+            f"{outcome_name}: expected {len(defs)} criteria rows, got {len(criteria_scores)}",
+        )
+    by_id = {c.criterion_id: c for c in criteria_scores if isinstance(c, CriterionScore)}
+    for d in defs:
+        row = by_id.get(d.criterion_id)
+        if row is None:
+            violations.append(f"{outcome_name}: missing criterion_id {d.criterion_id}")
+            continue
+        if row.criterion_name != d.name:
+            violations.append(
+                f"{outcome_name}: criterion {d.criterion_id} name mismatch "
+                f"(expected fixed checklist label)",
+            )
+        if row.max_points != d.max_points:
+            violations.append(
+                f"{outcome_name}: criterion {d.criterion_id} max_points "
+                f"expected {d.max_points}, got {row.max_points}",
+            )
+    return violations
+
+
+def validate_all_outcome_criteria(outcomes: list) -> list[str]:
+    """Validate every PRIN outcome against ``OUTCOME_CRITERIA``."""
+    violations: list[str] = []
+    for outcome in outcomes:
+        defs = OUTCOME_CRITERIA.get(outcome.outcome_name)
+        if defs is None:
+            violations.append(f"Unknown outcome name: {outcome.outcome_name!r}")
+            continue
+        violations.extend(
+            validate_outcome_criteria(
+                outcome.outcome_name,
+                outcome.criteria_scores,
+                defs,
+            ),
+        )
+    return violations
+
+
 def normalize_outcome_criteria(
     criteria_scores: list,
     defs: tuple[CriterionDef, ...],

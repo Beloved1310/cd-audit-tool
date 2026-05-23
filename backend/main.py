@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import backend.env_bootstrap  # noqa: F401  # before chromadb-backed imports
+
 import asyncio
 import hashlib
 import logging
@@ -13,9 +15,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from functools import partial
 
-from dotenv import load_dotenv
 import httpx
-from backend.config import get_settings
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -25,6 +25,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
+from backend.config import get_settings
 from backend.cache.report_cache import cache_report, clear_cache, get_cached_report
 from backend.cache.inflight_lock import acquire_inflight_lock, release_inflight_lock
 from backend.pipeline.versioning import compute_pipeline_version
@@ -49,7 +50,6 @@ from backend.app.services.audit_service import (
     get_or_run_journey,
 )
 
-load_dotenv()
 _SETTINGS = get_settings()
 
 configure_logging()
@@ -160,7 +160,7 @@ async def lifespan(app: FastAPI):
 
     docs_dir = str(_SETTINGS.fca_docs_dir)
     chroma_db = load_fca_docs(docs_dir)
-    retriever = get_retriever(chroma_db, k=4)
+    retriever = get_retriever(chroma_db, k=_SETTINGS.rag_retrieval_k)
     app.state.retriever = retriever
     app.state.pipeline_version = compute_pipeline_version()
     app.state.http_client = httpx.Client(

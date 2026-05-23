@@ -37,6 +37,28 @@ class Settings(BaseSettings):
         ),
     )
 
+    rag_retrieval_k: int = Field(
+        default=8,
+        ge=1,
+        le=20,
+        alias="RAG_RETRIEVAL_K",
+        description="Top-k FCA chunks retrieved per query string in outcome nodes.",
+    )
+    rag_max_chunks: int = Field(
+        default=8,
+        ge=1,
+        le=24,
+        alias="RAG_MAX_CHUNKS",
+        description="Maximum deduplicated FCA chunks passed into a single prompt.",
+    )
+    rag_context_max_chars: int = Field(
+        default=10_000,
+        ge=2_000,
+        le=32_000,
+        alias="RAG_CONTEXT_MAX_CHARS",
+        description="Character cap on concatenated FCA excerpt text per node.",
+    )
+
     crawl_page_limit: int = Field(default=15, ge=1, le=100, alias="CRAWL_PAGE_LIMIT")
     max_page_chars: int = Field(default=40_000, ge=1_000, le=500_000, alias="MAX_PAGE_CHARS")
     max_total_words: int = Field(default=60_000, ge=2_000, le=2_000_000, alias="MAX_TOTAL_WORDS")

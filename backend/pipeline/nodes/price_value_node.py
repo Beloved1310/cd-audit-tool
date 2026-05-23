@@ -5,13 +5,9 @@ from __future__ import annotations
 import json
 import logging
 
-from backend.ingestion.fca_loader import get_sources_from_docs, merge_retrieved_docs
 from backend.observability import stage_timer
-from backend.pipeline.content_builder import (
-    build_crawl_markdown,
-    format_fca_sources_numbered,
-    truncate_chars,
-)
+from backend.pipeline.content_builder import build_crawl_markdown
+from backend.pipeline.rag_context import build_fca_prompt_context
 from backend.pipeline.llm_errors import friendly_eval_error
 from backend.pipeline.groq_llm import chat_groq, invoke_groq
 from backend.pipeline.prompt_loader import load_prompt_text
@@ -31,10 +27,12 @@ logger = logging.getLogger(__name__)
 
 _QUERY = (
     "PRIN 2A.3 price value fair value fees charges costs "
-    "FG22/5 PS22/9 APR interest total cost comparison "
-    "introductory rate sludge transparency"
+    "APR interest total cost comparison introductory rate sludge transparency"
 )
-_PS22_QUERY = "PS22/9 Consumer Duty policy statement rules framework fair value"
+_RULEBOOK_QUERY = (
+    "FG22/5 PS22/9 price value fair value fees charges policy statement "
+    "rules framework"
+)
 _OUTCOME_NAME = "Price & Value"
 _SCOPE_NOTE = (
     "Public-website evidence only: a full Price & Value assessment typically requires "
@@ -62,13 +60,7 @@ def price_value_node(state: AuditState) -> dict:
     with stage_timer("price_value_prepare"):
         website_content = sanitise_website_content(build_crawl_markdown(cr, max_chars=10_000))
     with stage_timer("price_value_retrieve"):
-        docs = merge_retrieved_docs(retriever, _QUERY, _PS22_QUERY, k_each=4, max_docs=8)
-    sources = get_sources_from_docs(docs)
-    fca_context = truncate_chars(
-        "\n\n".join(d.page_content for d in docs),
-        8_000,
-    )
-    fca_sources = format_fca_sources_numbered(sources)
+        fca = build_fca_prompt_context(retriever, _QUERY, _RULEBOOK_QUERY)
 
     template = load_prompt_text("price_value.txt")
     output_schema = json.dumps(
@@ -76,8 +68,8 @@ def price_value_node(state: AuditState) -> dict:
         separators=(",", ":"),
     )
     formatted_prompt = template.format(
-        fca_sources=fca_sources,
-        fca_context=fca_context,
+        fca_sources=fca.fca_sources,
+        fca_context=fca.fca_context,
         scoring_criteria=format_criteria_for_prompt(PRICE_VALUE_CRITERIA),
         website_content=website_content,
         output_schema=output_schema,

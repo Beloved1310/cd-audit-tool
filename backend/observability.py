@@ -82,4 +82,5 @@ def configure_logging() -> None:
     root.handlers.clear()
     root.addHandler(handler)
     root.setLevel(logging.INFO)
+    logging.getLogger("chromadb.telemetry.product.posthog").setLevel(logging.CRITICAL)
     root._cd_audit_configured = True  # type: ignore[attr-defined]

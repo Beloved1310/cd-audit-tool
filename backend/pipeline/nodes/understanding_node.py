@@ -5,13 +5,9 @@ from __future__ import annotations
 import json
 import logging
 
-from backend.ingestion.fca_loader import get_sources_from_docs
 from backend.observability import stage_timer
-from backend.pipeline.content_builder import (
-    build_crawl_markdown,
-    format_fca_sources_numbered,
-    truncate_chars,
-)
+from backend.pipeline.content_builder import build_crawl_markdown
+from backend.pipeline.rag_context import build_fca_prompt_context
 from backend.pipeline.llm_errors import friendly_eval_error
 from backend.pipeline.groq_llm import chat_groq, invoke_groq
 from backend.pipeline.prompt_loader import load_prompt_text
@@ -32,6 +28,10 @@ logger = logging.getLogger(__name__)
 _QUERY = (
     "consumer understanding plain language risk warnings "
     "fee disclosure informed decisions promotional balance"
+)
+_FG22_QUERY = (
+    "FG22/5 consumer understanding good practice risk benefit balance "
+    "plain language promotions"
 )
 _OUTCOME_NAME = "Consumer Understanding"
 
@@ -56,13 +56,7 @@ def understanding_node(state: AuditState) -> dict:
     with stage_timer("understanding_prepare"):
         website_content = sanitise_website_content(build_crawl_markdown(cr, max_chars=10_000))
     with stage_timer("understanding_retrieve"):
-        docs = retriever.invoke(_QUERY)[:8]
-    sources = get_sources_from_docs(docs)
-    fca_context = truncate_chars(
-        "\n\n".join(d.page_content for d in docs),
-        8_000,
-    )
-    fca_sources = format_fca_sources_numbered(sources)
+        fca = build_fca_prompt_context(retriever, _QUERY, _FG22_QUERY)
 
     template = load_prompt_text("understanding.txt")
     output_schema = json.dumps(
@@ -70,8 +64,8 @@ def understanding_node(state: AuditState) -> dict:
         separators=(",", ":"),
     )
     formatted_prompt = template.format(
-        fca_sources=fca_sources,
-        fca_context=fca_context,
+        fca_sources=fca.fca_sources,
+        fca_context=fca.fca_context,
         scoring_criteria=format_criteria_for_prompt(UNDERSTANDING_CRITERIA),
         website_content=website_content,
         output_schema=output_schema,

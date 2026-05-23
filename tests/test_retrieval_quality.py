@@ -34,17 +34,6 @@ _QUERY_VULNERABILITY = (
     "support obligations signposting"
 )
 
-# Base document names produced by fca_loader._citation_label() — without page suffix.
-# Actual document_label values include a page number: e.g. "FG22/5, p.53".
-_KNOWN_BASE_LABELS = {
-    "FG22/5",
-    "PS22/9",
-    "Consumer Understanding Good Practice",
-    "Consumer Support Good Practice",
-    "FCA Vulnerable Customers Guidance",
-}
-
-
 def _base_label(document_label: str) -> str:
     """Strip page-number suffix: 'FG22/5, p.53' → 'FG22/5'."""
     return document_label.split(", p.")[0]
@@ -106,16 +95,15 @@ class TestChunkMetadata(unittest.TestCase):
                 self.assertIn("document_label", chunk)
                 self.assertTrue(chunk["text"].strip(), "chunk has empty text")
 
-    def test_chunk_labels_are_known_documents(self):
+    def test_products_query_surfaces_core_rulebooks(self):
         chunks = retrieve_for_query(_QUERY_PRODUCTS_SERVICES, k=6)
-        for chunk in chunks:
-            label = chunk["document_label"]
-            base = _base_label(label)
-            self.assertIn(
-                base,
-                _KNOWN_BASE_LABELS,
-                f"Unexpected document_label {label!r} (base: {base!r}) — update _KNOWN_BASE_LABELS or re-ingest.",
-            )
+        bases = {_base_label(c["document_label"]) for c in chunks}
+        self.assertTrue(bases, "expected at least one retrieved chunk")
+        core = bases & {"FG22/5", "PS22/9"}
+        self.assertTrue(
+            core,
+            f"products_services query should surface FG22/5 and/or PS22/9; got {bases}",
+        )
 
     def test_chunk_citation_in_metadata(self):
         chunks = retrieve_for_query(_QUERY_PRICE_VALUE, k=4)

@@ -5,13 +5,9 @@ from __future__ import annotations
 import json
 import logging
 
-from backend.ingestion.fca_loader import get_sources_from_docs
 from backend.observability import stage_timer
-from backend.pipeline.content_builder import (
-    build_crawl_markdown,
-    format_fca_sources_numbered,
-    truncate_chars,
-)
+from backend.pipeline.content_builder import build_crawl_markdown
+from backend.pipeline.rag_context import build_fca_prompt_context
 from backend.pipeline.llm_errors import friendly_eval_error
 from backend.pipeline.groq_llm import chat_groq, invoke_groq
 from backend.pipeline.prompt_loader import load_prompt_text
@@ -31,8 +27,12 @@ logger = logging.getLogger(__name__)
 
 _QUERY = (
     "PRIN 2A.2 products services target market design retail "
-    "FG22/5 outcome manufacture distribution vulnerability "
+    "outcome manufacture distribution vulnerability "
     "fair value product governance closed products"
+)
+_FG22_QUERY = (
+    "FG22/5 PS22/9 products services target market product governance "
+    "fair value design distribution"
 )
 _OUTCOME_NAME = "Products & Services"
 _SCOPE_NOTE = (
@@ -61,13 +61,7 @@ def products_services_node(state: AuditState) -> dict:
     with stage_timer("products_services_prepare"):
         website_content = sanitise_website_content(build_crawl_markdown(cr, max_chars=10_000))
     with stage_timer("products_services_retrieve"):
-        docs = retriever.invoke(_QUERY)[:8]
-    sources = get_sources_from_docs(docs)
-    fca_context = truncate_chars(
-        "\n\n".join(d.page_content for d in docs),
-        8_000,
-    )
-    fca_sources = format_fca_sources_numbered(sources)
+        fca = build_fca_prompt_context(retriever, _QUERY, _FG22_QUERY)
 
     template = load_prompt_text("products_services.txt")
     output_schema = json.dumps(
@@ -75,8 +69,8 @@ def products_services_node(state: AuditState) -> dict:
         separators=(",", ":"),
     )
     formatted_prompt = template.format(
-        fca_sources=fca_sources,
-        fca_context=fca_context,
+        fca_sources=fca.fca_sources,
+        fca_context=fca.fca_context,
         scoring_criteria=format_criteria_for_prompt(PRODUCTS_SERVICES_CRITERIA),
         website_content=website_content,
         output_schema=output_schema,

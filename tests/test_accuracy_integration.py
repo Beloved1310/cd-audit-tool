@@ -33,7 +33,7 @@ class TestAccuracyLiveIntegration(unittest.TestCase):
     def test_pipeline_produces_ten_criteria_per_outcome(self):
         settings = get_settings()
         chroma = load_fca_docs(str(settings.fca_docs_dir))
-        retriever = get_retriever(chroma)
+        retriever = get_retriever(chroma, k=settings.rag_retrieval_k)
         frozen = load_frozen_crawl(_FROZEN)
         crawl_result = CrawlResult.model_validate(frozen["crawl_result"])
         label = load_ground_truth(_LABEL)

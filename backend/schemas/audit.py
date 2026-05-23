@@ -103,6 +103,10 @@ class DarkPattern(BaseModel):
     evidence_text: str = Field(
         description="Exact on-page text that triggered detection.",
     )
+    fca_reference: str = Field(
+        default="",
+        description="Citation from retrieved FCA sources only (sludge / fair value / understanding).",
+    )
 
 
 class VulnerabilityGap(BaseModel):
