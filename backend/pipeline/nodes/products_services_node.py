@@ -23,17 +23,10 @@ from backend.security.prompt_injection import sanitise_website_content
 from backend.schemas.audit import ConfidenceLevel, OutcomeScore, RAGRating
 from backend.schemas.llm_io import OutcomeGroqOutput, outcome_from_groq_output
 
+from backend.pipeline.outcome_queries import PRODUCTS_SERVICES_QUERY
+
 logger = logging.getLogger(__name__)
 
-_QUERY = (
-    "PRIN 2A.2 products services target market design retail "
-    "outcome manufacture distribution vulnerability "
-    "fair value product governance closed products"
-)
-_FG22_QUERY = (
-    "FG22/5 PS22/9 products services target market product governance "
-    "fair value design distribution"
-)
 _OUTCOME_NAME = "Products & Services"
 _SCOPE_NOTE = (
     "Public-website evidence only: a full Products & Services assessment typically "
@@ -61,7 +54,7 @@ def products_services_node(state: AuditState) -> dict:
     with stage_timer("products_services_prepare"):
         website_content = sanitise_website_content(build_crawl_markdown(cr, max_chars=10_000))
     with stage_timer("products_services_retrieve"):
-        fca = build_fca_prompt_context(retriever, _QUERY, _FG22_QUERY)
+        fca = build_fca_prompt_context(retriever, PRODUCTS_SERVICES_QUERY)
 
     template = load_prompt_text("products_services.txt")
     output_schema = json.dumps(

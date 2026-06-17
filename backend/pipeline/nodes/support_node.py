@@ -23,16 +23,10 @@ from backend.security.prompt_injection import sanitise_website_content
 from backend.schemas.audit import ConfidenceLevel, OutcomeScore, RAGRating
 from backend.schemas.llm_io import OutcomeGroqOutput, outcome_from_groq_output
 
+from backend.pipeline.outcome_queries import CONSUMER_SUPPORT_QUERY
+
 logger = logging.getLogger(__name__)
 
-_QUERY = (
-    "consumer support complaints accessibility vulnerable "
-    "customers contact channels ease of exit"
-)
-_FG22_QUERY = (
-    "FG22/5 consumer support good practice complaints vulnerable customers "
-    "contact channels"
-)
 _OUTCOME_NAME = "Consumer Support"
 
 
@@ -56,7 +50,7 @@ def support_node(state: AuditState) -> dict:
     with stage_timer("support_prepare"):
         website_content = sanitise_website_content(build_crawl_markdown(cr, max_chars=10_000))
     with stage_timer("support_retrieve"):
-        fca = build_fca_prompt_context(retriever, _QUERY, _FG22_QUERY)
+        fca = build_fca_prompt_context(retriever, CONSUMER_SUPPORT_QUERY)
 
     template = load_prompt_text("support.txt")
     output_schema = json.dumps(

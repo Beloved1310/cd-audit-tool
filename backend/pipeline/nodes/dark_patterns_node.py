@@ -15,13 +15,9 @@ from backend.pipeline.rag_context import build_fca_prompt_context
 from backend.pipeline.state import AuditState
 from backend.schemas.audit import DarkPattern
 
-logger = logging.getLogger(__name__)
+from backend.pipeline.outcome_queries import DARK_PATTERNS_QUERY
 
-_QUERY = (
-    "Consumer Duty sludge dark patterns deceptive design unfair friction "
-    "hidden fees urgency manipulation opt-out"
-)
-_FG22_QUERY = "FG22/5 PS22/9 consumer understanding fair value sludge transparency"
+logger = logging.getLogger(__name__)
 
 
 class DarkPatternDetectionResult(BaseModel):
@@ -38,7 +34,7 @@ def dark_patterns_node(state: AuditState) -> dict:
         content = build_crawl_markdown(cr, max_chars=14_000)
 
     with stage_timer("dark_patterns_retrieve"):
-        fca = build_fca_prompt_context(retriever, _QUERY, _FG22_QUERY)
+        fca = build_fca_prompt_context(retriever, DARK_PATTERNS_QUERY)
 
     llm = chat_groq()
     structured = llm.with_structured_output(DarkPatternDetectionResult)

@@ -27,9 +27,9 @@ def build_fca_prompt_context(
     k_per_query: int | None = None,
 ) -> FcaPromptContext:
     """
-    Run one or more similarity queries, dedupe chunks, and format for prompts.
+    Run one or more retrieval queries, dedupe chunks, and format for prompts.
 
-    Uses ``Settings.rag_retrieval_k`` per query unless ``k_per_query`` is set.
+    With hybrid search enabled, a single natural-language query per outcome is sufficient.
     """
     settings = get_settings()
     k = k_per_query if k_per_query is not None else settings.rag_retrieval_k

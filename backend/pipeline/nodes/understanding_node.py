@@ -23,16 +23,10 @@ from backend.security.prompt_injection import sanitise_website_content
 from backend.schemas.audit import ConfidenceLevel, OutcomeScore, RAGRating
 from backend.schemas.llm_io import OutcomeGroqOutput, outcome_from_groq_output
 
+from backend.pipeline.outcome_queries import CONSUMER_UNDERSTANDING_QUERY
+
 logger = logging.getLogger(__name__)
 
-_QUERY = (
-    "consumer understanding plain language risk warnings "
-    "fee disclosure informed decisions promotional balance"
-)
-_FG22_QUERY = (
-    "FG22/5 consumer understanding good practice risk benefit balance "
-    "plain language promotions"
-)
 _OUTCOME_NAME = "Consumer Understanding"
 
 
@@ -56,7 +50,7 @@ def understanding_node(state: AuditState) -> dict:
     with stage_timer("understanding_prepare"):
         website_content = sanitise_website_content(build_crawl_markdown(cr, max_chars=10_000))
     with stage_timer("understanding_retrieve"):
-        fca = build_fca_prompt_context(retriever, _QUERY, _FG22_QUERY)
+        fca = build_fca_prompt_context(retriever, CONSUMER_UNDERSTANDING_QUERY)
 
     template = load_prompt_text("understanding.txt")
     output_schema = json.dumps(

@@ -23,16 +23,10 @@ from backend.security.prompt_injection import sanitise_website_content
 from backend.schemas.audit import ConfidenceLevel, OutcomeScore, RAGRating
 from backend.schemas.llm_io import OutcomeGroqOutput, outcome_from_groq_output
 
+from backend.pipeline.outcome_queries import PRICE_VALUE_QUERY
+
 logger = logging.getLogger(__name__)
 
-_QUERY = (
-    "PRIN 2A.3 price value fair value fees charges costs "
-    "APR interest total cost comparison introductory rate sludge transparency"
-)
-_RULEBOOK_QUERY = (
-    "FG22/5 PS22/9 price value fair value fees charges policy statement "
-    "rules framework"
-)
 _OUTCOME_NAME = "Price & Value"
 _SCOPE_NOTE = (
     "Public-website evidence only: a full Price & Value assessment typically requires "
@@ -60,7 +54,7 @@ def price_value_node(state: AuditState) -> dict:
     with stage_timer("price_value_prepare"):
         website_content = sanitise_website_content(build_crawl_markdown(cr, max_chars=10_000))
     with stage_timer("price_value_retrieve"):
-        fca = build_fca_prompt_context(retriever, _QUERY, _RULEBOOK_QUERY)
+        fca = build_fca_prompt_context(retriever, PRICE_VALUE_QUERY)
 
     template = load_prompt_text("price_value.txt")
     output_schema = json.dumps(

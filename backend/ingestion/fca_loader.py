@@ -230,8 +230,13 @@ def load_fca_docs(docs_dir: str) -> Chroma:
     )
 
 
-def get_retriever(chroma: Chroma, k: int = 5) -> VectorStoreRetriever:
-    """Top-``k`` similarity retriever returning full :class:`~langchain_core.documents.Document` objects."""
+def get_retriever(chroma: Chroma, k: int = 5):
+    """Top-``k`` retriever (hybrid BM25+vector when enabled, else vector-only)."""
+    settings = get_settings()
+    if settings.rag_hybrid_enabled:
+        from backend.ingestion.hybrid_retriever import build_hybrid_retriever
+
+        return build_hybrid_retriever(chroma, k=k)
     return chroma.as_retriever(search_kwargs={"k": k})
 
 
@@ -299,7 +304,7 @@ def verify_chroma_populated(min_chunks: int = 1) -> tuple[bool, str]:
 
 def retrieve_for_query(query: str, k: int = 6) -> list[dict]:
     """
-    Similarity search for pipeline prompts.
+    Hybrid (or vector) search for pipeline prompts and tests.
 
     Each item: ``source_id``, ``text``, ``metadata``, ``document_label`` (citation string).
     """

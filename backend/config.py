@@ -58,6 +58,25 @@ class Settings(BaseSettings):
         alias="RAG_CONTEXT_MAX_CHARS",
         description="Character cap on concatenated FCA excerpt text per node.",
     )
+    rag_hybrid_enabled: bool = Field(
+        default=True,
+        alias="RAG_HYBRID_ENABLED",
+        description="Fuse BM25 keyword search with vector similarity for FCA retrieval.",
+    )
+    rag_hybrid_candidate_k: int = Field(
+        default=16,
+        ge=4,
+        le=40,
+        alias="RAG_HYBRID_CANDIDATE_K",
+        description="Per-channel candidate pool size before RRF fusion.",
+    )
+    rag_hybrid_rrf_k: int = Field(
+        default=60,
+        ge=1,
+        le=200,
+        alias="RAG_HYBRID_RRF_K",
+        description="RRF rank constant (higher = flatter fusion weights).",
+    )
 
     crawl_page_limit: int = Field(default=15, ge=1, le=100, alias="CRAWL_PAGE_LIMIT")
     max_page_chars: int = Field(default=40_000, ge=1_000, le=500_000, alias="MAX_PAGE_CHARS")

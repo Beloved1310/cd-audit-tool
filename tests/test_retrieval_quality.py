@@ -1,38 +1,23 @@
-"""Retrieval quality tests: assert each pipeline node's fixed query returns relevant FCA chunks.
+"""Retrieval quality tests: hybrid BM25+vector search against populated Chroma.
 
-These are integration tests that require ChromaDB to be populated.
-Run `python -m backend.ingestion.fca_loader` once before running this suite.
-Tests are skipped automatically when the collection is empty.
+Run ``python -m backend.ingestion.fca_loader`` once before this suite.
+Tests skip automatically when the collection is empty.
 """
 from __future__ import annotations
 
 import unittest
 
 from backend.ingestion.fca_loader import retrieve_for_query, verify_chroma_populated
+from backend.pipeline.outcome_queries import (
+    CONSUMER_SUPPORT_QUERY,
+    CONSUMER_UNDERSTANDING_QUERY,
+    DARK_PATTERNS_QUERY,
+    PRICE_VALUE_QUERY,
+    PRODUCTS_SERVICES_QUERY,
+    PS22_POLICY_QUERY,
+    VULNERABILITY_QUERY,
+)
 
-# Hardcoded from each node's module-level _QUERY — update here if a node's query changes.
-_QUERY_PRODUCTS_SERVICES = (
-    "PRIN 2A.2 products services target market design retail "
-    "FG22/5 outcome manufacture distribution vulnerability "
-    "fair value product governance closed products"
-)
-_QUERY_PRICE_VALUE = (
-    "PRIN 2A.3 price value fair value fees charges costs "
-    "FG22/5 PS22/9 APR interest total cost comparison "
-    "introductory rate sludge transparency"
-)
-_QUERY_UNDERSTANDING = (
-    "consumer understanding plain language risk warnings "
-    "fee disclosure informed decisions promotional balance"
-)
-_QUERY_SUPPORT = (
-    "consumer support complaints accessibility vulnerable "
-    "customers contact channels ease of exit"
-)
-_QUERY_VULNERABILITY = (
-    "vulnerable customers financial difficulty accessibility "
-    "support obligations signposting"
-)
 
 def _base_label(document_label: str) -> str:
     """Strip page-number suffix: 'FG22/5, p.53' → 'FG22/5'."""
@@ -48,7 +33,7 @@ def _skip_if_not_populated():
 
 
 class TestRetrievalReturnsChunks(unittest.TestCase):
-    """Basic smoke tests: every node query returns at least one chunk."""
+    """Basic smoke tests: every outcome query returns at least one chunk."""
 
     @classmethod
     def setUpClass(cls):
@@ -58,24 +43,28 @@ class TestRetrievalReturnsChunks(unittest.TestCase):
         return retrieve_for_query(query, k=k)
 
     def test_products_services_returns_chunks(self):
-        chunks = self._chunks(_QUERY_PRODUCTS_SERVICES)
+        chunks = self._chunks(PRODUCTS_SERVICES_QUERY)
         self.assertGreater(len(chunks), 0, "products_services query returned no chunks")
 
     def test_price_value_returns_chunks(self):
-        chunks = self._chunks(_QUERY_PRICE_VALUE)
+        chunks = self._chunks(PRICE_VALUE_QUERY)
         self.assertGreater(len(chunks), 0, "price_value query returned no chunks")
 
     def test_understanding_returns_chunks(self):
-        chunks = self._chunks(_QUERY_UNDERSTANDING)
+        chunks = self._chunks(CONSUMER_UNDERSTANDING_QUERY)
         self.assertGreater(len(chunks), 0, "understanding query returned no chunks")
 
     def test_support_returns_chunks(self):
-        chunks = self._chunks(_QUERY_SUPPORT)
+        chunks = self._chunks(CONSUMER_SUPPORT_QUERY)
         self.assertGreater(len(chunks), 0, "support query returned no chunks")
 
     def test_vulnerability_returns_chunks(self):
-        chunks = self._chunks(_QUERY_VULNERABILITY)
+        chunks = self._chunks(VULNERABILITY_QUERY)
         self.assertGreater(len(chunks), 0, "vulnerability query returned no chunks")
+
+    def test_dark_patterns_returns_chunks(self):
+        chunks = self._chunks(DARK_PATTERNS_QUERY)
+        self.assertGreater(len(chunks), 0, "dark_patterns query returned no chunks")
 
 
 class TestChunkMetadata(unittest.TestCase):
@@ -86,7 +75,7 @@ class TestChunkMetadata(unittest.TestCase):
         _skip_if_not_populated()
 
     def test_chunk_fields_present(self):
-        chunks = retrieve_for_query(_QUERY_PRODUCTS_SERVICES, k=4)
+        chunks = retrieve_for_query(PRODUCTS_SERVICES_QUERY, k=4)
         for chunk in chunks:
             with self.subTest(chunk_id=chunk.get("source_id")):
                 self.assertIn("source_id", chunk)
@@ -96,7 +85,7 @@ class TestChunkMetadata(unittest.TestCase):
                 self.assertTrue(chunk["text"].strip(), "chunk has empty text")
 
     def test_products_query_surfaces_core_rulebooks(self):
-        chunks = retrieve_for_query(_QUERY_PRODUCTS_SERVICES, k=6)
+        chunks = retrieve_for_query(PRODUCTS_SERVICES_QUERY, k=6)
         bases = {_base_label(c["document_label"]) for c in chunks}
         self.assertTrue(bases, "expected at least one retrieved chunk")
         core = bases & {"FG22/5", "PS22/9"}
@@ -106,7 +95,7 @@ class TestChunkMetadata(unittest.TestCase):
         )
 
     def test_chunk_citation_in_metadata(self):
-        chunks = retrieve_for_query(_QUERY_PRICE_VALUE, k=4)
+        chunks = retrieve_for_query(PRICE_VALUE_QUERY, k=4)
         for chunk in chunks:
             meta = chunk.get("metadata", {})
             self.assertIn("citation", meta, "chunk metadata missing 'citation' key")
@@ -114,7 +103,7 @@ class TestChunkMetadata(unittest.TestCase):
 
 
 class TestRetrievalRelevance(unittest.TestCase):
-    """Assert that each node's query surfaces at least one expected source document."""
+    """Assert that each outcome query surfaces at least one expected source document."""
 
     @classmethod
     def setUpClass(cls):
@@ -124,20 +113,19 @@ class TestRetrievalRelevance(unittest.TestCase):
         return {_base_label(c["document_label"]) for c in retrieve_for_query(query, k=k)}
 
     def test_products_services_surfaces_fg22_5(self):
-        labels = self._base_labels(_QUERY_PRODUCTS_SERVICES)
+        labels = self._base_labels(PRODUCTS_SERVICES_QUERY)
         self.assertIn("FG22/5", labels, f"FG22/5 not in top results; got {labels}")
 
     def test_price_value_surfaces_fg22_5(self):
-        labels = self._base_labels(_QUERY_PRICE_VALUE)
+        labels = self._base_labels(PRICE_VALUE_QUERY)
         self.assertIn("FG22/5", labels, f"FG22/5 not in top results; got {labels}")
 
     def test_ps22_9_retrievable_with_policy_query(self):
-        """PS22/9 is a smaller doc; a dedicated query must surface it after ingest."""
-        labels = self._base_labels("PS22/9 Consumer Duty policy statement rules framework")
+        labels = self._base_labels(PS22_POLICY_QUERY)
         self.assertIn("PS22/9", labels, f"PS22/9 not in top results; got {labels}")
 
     def test_understanding_surfaces_understanding_doc(self):
-        labels = self._base_labels(_QUERY_UNDERSTANDING)
+        labels = self._base_labels(CONSUMER_UNDERSTANDING_QUERY)
         expected = {"Consumer Understanding Good Practice", "FG22/5"}
         overlap = labels & expected
         self.assertTrue(
@@ -146,7 +134,7 @@ class TestRetrievalRelevance(unittest.TestCase):
         )
 
     def test_support_surfaces_support_doc(self):
-        labels = self._base_labels(_QUERY_SUPPORT)
+        labels = self._base_labels(CONSUMER_SUPPORT_QUERY)
         expected = {"Consumer Support Good Practice", "FG22/5"}
         overlap = labels & expected
         self.assertTrue(
