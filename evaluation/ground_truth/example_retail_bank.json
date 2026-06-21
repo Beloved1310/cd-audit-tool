@@ -3,6 +3,8 @@
   "url": "https://example-retail-bank.test/",
   "labelled_by": "synthetic_fixture_v1",
   "labelled_at": "2026-05-10",
+  "frozen_at": "2026-05-10T10:00:00+00:00",
+  "pipeline_version": "",
   "notes": "Synthetic fixture representing a reasonably compliant retail bank. Strong on pricing transparency, support, and vulnerability. Weaker on product governance signals and cross-selling disclosure.",
   "outcomes": {
     "Products & Services": {

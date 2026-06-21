@@ -226,3 +226,23 @@ def format_accuracy_report(summary: AccuracySummary) -> str:
             lines.append(f"    {outcome} criterion {cid:>2}: {rate:.0%} disagreement")
 
     return "\n".join(lines)
+
+
+def check_accuracy_gates(
+    summary: AccuracySummary,
+    *,
+    max_mae: float | None = None,
+    min_rating_agreement: float | None = None,
+) -> list[str]:
+    """Return failure messages when summary does not meet optional thresholds."""
+    failures: list[str] = []
+    if max_mae is not None and summary.overall_mae > max_mae:
+        failures.append(
+            f"overall MAE {summary.overall_mae:.2f} exceeds --max-mae {max_mae:.2f}",
+        )
+    if min_rating_agreement is not None and summary.rating_agreement_pct < min_rating_agreement:
+        failures.append(
+            f"rating agreement {summary.rating_agreement_pct:.1f}% "
+            f"below --min-rating-agreement {min_rating_agreement:.1f}%",
+        )
+    return failures

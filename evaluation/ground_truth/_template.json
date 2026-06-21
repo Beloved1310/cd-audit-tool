@@ -1,0 +1,71 @@
+{
+  "site_id": "YOUR_SITE_ID",
+  "url": "https://example.co.uk/",
+  "labelled_by": "expert_name_or_team",
+  "labelled_at": "YYYY-MM-DD",
+  "frozen_at": "COPY_FROM_frozen_crawls/YOUR_SITE_ID.json frozen_at",
+  "pipeline_version": "OPTIONAL_p_xxxxxxxxxxxx from compute_pipeline_version()",
+  "notes": "Label ONLY from evaluation/frozen_crawls/YOUR_SITE_ID.json pages — not the live website. Public website scope only.",
+  "outcomes": {
+    "Products & Services": {
+      "notes": "",
+      "criteria": {
+        "1": {"awarded": 0, "note": ""},
+        "2": {"awarded": 0, "note": ""},
+        "3": {"awarded": 0, "note": ""},
+        "4": {"awarded": 0, "note": ""},
+        "5": {"awarded": 0, "note": ""},
+        "6": {"awarded": 0, "note": ""},
+        "7": {"awarded": 0, "note": ""},
+        "8": {"awarded": 0, "note": ""},
+        "9": {"awarded": 0, "note": ""},
+        "10": {"awarded": 0, "note": ""}
+      }
+    },
+    "Price & Value": {
+      "notes": "",
+      "criteria": {
+        "1": {"awarded": 0, "note": ""},
+        "2": {"awarded": 0, "note": ""},
+        "3": {"awarded": 0, "note": ""},
+        "4": {"awarded": 0, "note": ""},
+        "5": {"awarded": 0, "note": ""},
+        "6": {"awarded": 0, "note": ""},
+        "7": {"awarded": 0, "note": ""},
+        "8": {"awarded": 0, "note": ""},
+        "9": {"awarded": 0, "note": ""},
+        "10": {"awarded": 0, "note": ""}
+      }
+    },
+    "Consumer Understanding": {
+      "notes": "",
+      "criteria": {
+        "1": {"awarded": 0, "note": ""},
+        "2": {"awarded": 0, "note": ""},
+        "3": {"awarded": 0, "note": ""},
+        "4": {"awarded": 0, "note": ""},
+        "5": {"awarded": 0, "note": ""},
+        "6": {"awarded": 0, "note": ""},
+        "7": {"awarded": 0, "note": ""},
+        "8": {"awarded": 0, "note": ""},
+        "9": {"awarded": 0, "note": ""},
+        "10": {"awarded": 0, "note": ""}
+      }
+    },
+    "Consumer Support": {
+      "notes": "",
+      "criteria": {
+        "1": {"awarded": 0, "note": ""},
+        "2": {"awarded": 0, "note": ""},
+        "3": {"awarded": 0, "note": ""},
+        "4": {"awarded": 0, "note": ""},
+        "5": {"awarded": 0, "note": ""},
+        "6": {"awarded": 0, "note": ""},
+        "7": {"awarded": 0, "note": ""},
+        "8": {"awarded": 0, "note": ""},
+        "9": {"awarded": 0, "note": ""},
+        "10": {"awarded": 0, "note": ""}
+      }
+    }
+  }
+}

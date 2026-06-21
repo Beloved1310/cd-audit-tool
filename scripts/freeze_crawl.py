@@ -12,6 +12,7 @@ The saved file can then be:
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -48,11 +49,16 @@ def main() -> None:
     )
 
     save_frozen_crawl(result, out_path, site_id=site_id, url=args.url)
+    frozen = json.loads(out_path.read_text(encoding="utf-8"))
+    frozen_at = frozen.get("frozen_at", "")
     print(f"Frozen crawl saved to: {out_path.resolve()}")
+    print(f"  frozen_at: {frozen_at}")
     print()
-    print("Next step: create a matching expert label file at:")
-    print(f"  evaluation/ground_truth/{site_id}.json")
-    print("Use the ground truth schema in backend/evaluation/ground_truth.py as a template.")
+    print("Next steps (see evaluation/README.md):")
+    print(f"  1. cp evaluation/ground_truth/_template.json evaluation/ground_truth/{site_id}.json")
+    print(f"  2. Set site_id, url, frozen_at={frozen_at!r}, labelled_by")
+    print("  3. Score criteria 1–10 from the frozen pages only (not the live site)")
+    print(f"  4. python scripts/run_accuracy.py --site {site_id} --max-mae 1.5 --min-rating-agreement 75")
 
 
 if __name__ == "__main__":

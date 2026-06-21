@@ -64,8 +64,11 @@ class OutcomeLabel(BaseModel):
                 n = int(k)
             except ValueError:
                 raise ValueError(f"Criterion key must be an integer string, got {k!r}")
-            if n < 1:
-                raise ValueError(f"Criterion id must be >= 1, got {n}")
+            if n < 1 or n > 10:
+                raise ValueError(f"Criterion id must be 1–10, got {n}")
+        missing = [str(i) for i in range(1, 11) if str(i) not in self.criteria]
+        if missing:
+            raise ValueError(f"Outcome label must include criteria 1–10; missing {missing}")
         return self
 
     @property
@@ -79,6 +82,14 @@ class GroundTruthLabel(BaseModel):
     url: str
     labelled_by: str = ""
     labelled_at: str = ""
+    frozen_at: str = Field(
+        default="",
+        description="ISO timestamp copied from the paired frozen crawl file at label time.",
+    )
+    pipeline_version: str = Field(
+        default="",
+        description="Pipeline version active when labels were created (optional but recommended).",
+    )
     notes: str = ""
     outcomes: dict[str, OutcomeLabel]
 
@@ -108,10 +119,52 @@ def load_ground_truth(path: Path | str) -> GroundTruthLabel:
     return GroundTruthLabel.model_validate_json(raw)
 
 
+def is_synthetic_expert_label(label: GroundTruthLabel) -> bool:
+    """True when labels are fixture-generated, not independent expert review."""
+    by = (label.labelled_by or "").strip().lower()
+    if not by:
+        return True
+    if by.startswith("synthetic") or by.startswith("draft_from"):
+        return True
+    return by in ("fixture", "auto", "test", "your_site_id", "expert_name_or_team")
+
+
+def validate_label_matches_frozen(
+    label: GroundTruthLabel,
+    frozen: dict,
+    *,
+    require_frozen_at: bool = False,
+) -> list[str]:
+    """Return human-readable errors if label metadata does not match frozen crawl."""
+    from backend.util.url_norm import canonical_url
+
+    errors: list[str] = []
+    frozen_site = (frozen.get("site_id") or "").strip()
+    if frozen_site and label.site_id != frozen_site:
+        errors.append(f"site_id mismatch: label={label.site_id!r} frozen={frozen_site!r}")
+
+    frozen_url = canonical_url(str(frozen.get("url") or ""))
+    label_url = canonical_url(label.url)
+    if frozen_url and label_url and frozen_url != label_url:
+        errors.append(f"url mismatch: label={label_url!r} frozen={frozen_url!r}")
+
+    frozen_at = (frozen.get("frozen_at") or "").strip()
+    if require_frozen_at and not (label.frozen_at or "").strip():
+        errors.append("label missing frozen_at — copy from the paired frozen crawl file")
+    elif frozen_at and (label.frozen_at or "").strip() and label.frozen_at.strip() != frozen_at:
+        errors.append(
+            f"frozen_at mismatch: label={label.frozen_at!r} frozen={frozen_at!r} "
+            "(re-label or update frozen_at if crawl was re-frozen)",
+        )
+    return errors
+
+
 def load_all_ground_truth(directory: Path | str) -> dict[str, GroundTruthLabel]:
     """Load all *.json label files from a directory, keyed by site_id."""
     out: dict[str, GroundTruthLabel] = {}
     for p in sorted(Path(directory).glob("*.json")):
+        if p.name.startswith("_"):
+            continue
         label = load_ground_truth(p)
         out[label.site_id] = label
     return out

@@ -23,12 +23,20 @@ from pathlib import Path
 
 from backend.crawler.site_crawler import CrawledPage, CrawlResult
 from backend.evaluation.accuracy import (
+    check_accuracy_gates,
     compare_to_ground_truth,
     format_accuracy_report,
     summarise_accuracy,
 )
 from backend.evaluation.frozen_crawl import load_frozen_crawl, save_frozen_crawl
-from backend.evaluation.ground_truth import GroundTruthLabel, load_ground_truth, save_ground_truth
+from backend.evaluation.ground_truth import (
+    GroundTruthLabel,
+    is_synthetic_expert_label,
+    load_all_ground_truth,
+    load_ground_truth,
+    save_ground_truth,
+    validate_label_matches_frozen,
+)
 from backend.schemas.audit import (
     AuditReport,
     AuditStatus,
@@ -145,21 +153,39 @@ class TestGroundTruthSchema(unittest.TestCase):
         label = _make_label("t", ps=8, pv=6, cu=6, cs=8)
         self.assertEqual(label.overall_score(), 7)
 
-    def test_missing_outcome_raises(self):
-        with self.assertRaises(Exception):
-            GroundTruthLabel(
-                site_id="x",
-                url="https://x.com",
-                outcomes={"Products & Services": {"notes": "", "criteria": {"1": {"awarded": 1}}}},
-            )
-
-    def test_invalid_criterion_id_raises(self):
+    def test_missing_criteria_raises(self):
         with self.assertRaises(Exception):
             GroundTruthLabel(
                 site_id="x",
                 url="https://x.com",
                 outcomes={
-                    o: {"notes": "", "criteria": {"abc": {"awarded": 1}}}
+                    o: {"notes": "", "criteria": {"1": {"awarded": 1}}}
+                    for o in ("Products & Services", "Price & Value", "Consumer Understanding", "Consumer Support")
+                },
+            )
+
+    def test_missing_outcome_raises(self):
+        full_criteria = {str(i): {"awarded": 1, "note": ""} for i in range(1, 11)}
+        with self.assertRaises(Exception):
+            GroundTruthLabel(
+                site_id="x",
+                url="https://x.com",
+                outcomes={
+                    "Products & Services": {"notes": "", "criteria": full_criteria},
+                    "Price & Value": {"notes": "", "criteria": full_criteria},
+                    "Consumer Understanding": {"notes": "", "criteria": full_criteria},
+                },
+            )
+
+    def test_invalid_criterion_id_raises(self):
+        full = {str(i): {"awarded": 1, "note": ""} for i in range(1, 11)}
+        full["abc"] = {"awarded": 1, "note": ""}
+        with self.assertRaises(Exception):
+            GroundTruthLabel(
+                site_id="x",
+                url="https://x.com",
+                outcomes={
+                    o: {"notes": "", "criteria": dict(full)}
                     for o in ("Products & Services", "Price & Value", "Consumer Understanding", "Consumer Support")
                 },
             )
@@ -179,11 +205,40 @@ class TestGroundTruthSchema(unittest.TestCase):
             self.skipTest("sample fixture missing")
         label = load_ground_truth(fixture)
         self.assertEqual(label.site_id, "example_retail_bank")
+        self.assertEqual(label.frozen_at, "2026-05-10T10:00:00+00:00")
         for outcome in ("Products & Services", "Price & Value", "Consumer Understanding", "Consumer Support"):
             self.assertIn(outcome, label.outcomes)
+            self.assertEqual(len(label.outcomes[outcome].criteria), 10)
             score = label.outcome_score(outcome)
             self.assertGreaterEqual(score, 0)
             self.assertLessEqual(score, 10)
+
+    def test_load_all_skips_template(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            save_ground_truth(_make_label("real_site"), root / "real_site.json")
+            (root / "_template.json").write_text('{"site_id":"skip"}', encoding="utf-8")
+            loaded = load_all_ground_truth(root)
+        self.assertEqual(set(loaded), {"real_site"})
+
+    def test_validate_label_matches_frozen(self):
+        label = _make_label("paired", ps=8, pv=7, cu=6, cs=9)
+        label = label.model_copy(update={"frozen_at": "2026-05-10T10:00:00+00:00"})
+        frozen = {
+            "site_id": "paired",
+            "url": "https://test.example/",
+            "frozen_at": "2026-05-10T10:00:00+00:00",
+        }
+        self.assertEqual(validate_label_matches_frozen(label, frozen), [])
+        mismatched = label.model_copy(update={"frozen_at": "2026-05-11T10:00:00+00:00"})
+        errs = validate_label_matches_frozen(mismatched, frozen)
+        self.assertTrue(any("frozen_at mismatch" in e for e in errs))
+
+    def test_is_synthetic_expert_label(self):
+        synthetic = _make_label("s").model_copy(update={"labelled_by": "synthetic_fixture_v1"})
+        expert = _make_label("e").model_copy(update={"labelled_by": "Jane Smith, FCA consultant"})
+        self.assertTrue(is_synthetic_expert_label(synthetic))
+        self.assertFalse(is_synthetic_expert_label(expert))
 
 
 class TestFrozenCrawlSerialisation(unittest.TestCase):
@@ -295,6 +350,19 @@ class TestAccuracySummary(unittest.TestCase):
         if summary.worst_criteria:
             rates = [rate for _, _, rate in summary.worst_criteria]
             self.assertEqual(rates, sorted(rates, reverse=True))
+
+    def test_accuracy_gates_pass_and_fail(self):
+        perfect = summarise_accuracy([
+            compare_to_ground_truth(_make_report(8, 8, 8, 8), _make_label("s1", 8, 8, 8, 8)),
+        ])
+        self.assertEqual(check_accuracy_gates(perfect, max_mae=1.5, min_rating_agreement=75.0), [])
+
+        poor = summarise_accuracy([
+            compare_to_ground_truth(_make_report(3, 3, 3, 3), _make_label("s2", 8, 8, 8, 8)),
+        ])
+        failures = check_accuracy_gates(poor, max_mae=1.5, min_rating_agreement=75.0)
+        self.assertTrue(any("MAE" in f for f in failures))
+        self.assertTrue(any("rating agreement" in f for f in failures))
 
 
 if __name__ == "__main__":

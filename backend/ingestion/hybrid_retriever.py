@@ -91,7 +91,14 @@ def build_hybrid_retriever(chroma: Chroma, *, k: int) -> HybridFcaRetriever | An
         logger.warning("Chroma empty — hybrid retriever falling back to vector-only")
         return chroma.as_retriever(search_kwargs={"k": k})
 
-    bm25 = BM25Retriever.from_documents(docs)
+    try:
+        bm25 = BM25Retriever.from_documents(docs)
+    except ImportError:
+        logger.warning(
+            "rank_bm25 not installed — hybrid retriever falling back to vector-only. "
+            "Run: pip install rank-bm25",
+        )
+        return chroma.as_retriever(search_kwargs={"k": k})
     bm25.k = candidate_k
     logger.info(
         "Hybrid retriever ready: %s chunks, k=%s, candidate_k=%s",

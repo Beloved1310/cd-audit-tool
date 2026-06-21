@@ -4,8 +4,9 @@ Usage:
     # Run all sites that have both a frozen crawl and a ground truth label:
     python scripts/run_accuracy.py
 
-    # Run a single site:
-    python scripts/run_accuracy.py --site example_retail_bank
+    # Run a single site with accuracy gates (exit 1 if thresholds not met):
+    python scripts/run_accuracy.py --site example_retail_bank \\
+        --max-mae 1.5 --min-rating-agreement 75
 
     # Override directories:
     python scripts/run_accuracy.py \\
@@ -13,6 +14,8 @@ Usage:
         --labels evaluation/ground_truth
 
 Requires: GROQ_API_KEY set in environment or .env (live LLM calls are made for each site).
+
+See evaluation/README.md for freeze-at-label-time workflow and _template.json.
 """
 from __future__ import annotations
 
@@ -24,15 +27,28 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from backend.evaluation.accuracy import (
+    check_accuracy_gates,
     compare_to_ground_truth,
     format_accuracy_report,
     summarise_accuracy,
 )
 from backend.evaluation.frozen_crawl import load_frozen_crawl, run_pipeline_from_frozen
-from backend.evaluation.ground_truth import load_ground_truth
+from backend.evaluation.ground_truth import (
+    is_synthetic_expert_label,
+    load_ground_truth,
+    validate_label_matches_frozen,
+)
 from backend.ingestion.fca_loader import load_fca_docs, get_retriever
 from backend.config import get_settings
 from backend.schemas.audit import AuditReport
+
+
+def _label_json_files(labels_dir: Path) -> dict[str, Path]:
+    return {
+        p.stem: p
+        for p in sorted(labels_dir.glob("*.json"))
+        if not p.name.startswith("_")
+    }
 
 
 def main() -> None:
@@ -57,13 +73,40 @@ def main() -> None:
         default="",
         help="Optional path to write a JSON summary file.",
     )
+    parser.add_argument(
+        "--max-mae",
+        type=float,
+        default=None,
+        help="Fail (exit 1) if overall MAE exceeds this value (0–10 scale).",
+    )
+    parser.add_argument(
+        "--min-rating-agreement",
+        type=float,
+        default=None,
+        help="Fail (exit 1) if rating agreement %% is below this value.",
+    )
+    parser.add_argument(
+        "--require-expert-labels",
+        action="store_true",
+        help="Fail if any matched label has synthetic/placeholder labelled_by.",
+    )
+    parser.add_argument(
+        "--require-frozen-at",
+        action="store_true",
+        help="Fail if label files omit frozen_at (recommended for expert benchmarks).",
+    )
+    parser.add_argument(
+        "--skip-frozen-validation",
+        action="store_true",
+        help="Do not check label site_id/url/frozen_at against frozen crawl metadata.",
+    )
     args = parser.parse_args()
 
     frozen_dir = Path(args.frozen)
     labels_dir = Path(args.labels)
 
     frozen_files = {p.stem: p for p in sorted(frozen_dir.glob("*.json"))}
-    label_files = {p.stem: p for p in sorted(labels_dir.glob("*.json"))}
+    label_files = _label_json_files(labels_dir)
     matched = sorted(set(frozen_files) & set(label_files))
 
     if args.site:
@@ -79,6 +122,32 @@ def main() -> None:
         sys.exit(1)
 
     print(f"Running accuracy benchmark for {len(matched)} site(s): {matched}\n")
+
+    validation_errors: list[str] = []
+    for site_id in matched:
+        frozen = json.loads(frozen_files[site_id].read_text(encoding="utf-8"))
+        label = load_ground_truth(label_files[site_id])
+        if args.require_expert_labels and is_synthetic_expert_label(label):
+            validation_errors.append(
+                f"[{site_id}] labelled_by={label.labelled_by!r} is not an expert label "
+                "(use --require-expert-labels only with real reviewer names)",
+            )
+        if not args.skip_frozen_validation:
+            validation_errors.extend(
+                f"[{site_id}] {msg}"
+                for msg in validate_label_matches_frozen(
+                    label,
+                    frozen,
+                    require_frozen_at=args.require_frozen_at,
+                )
+            )
+
+    if validation_errors:
+        print("Label / frozen crawl validation failed:\n")
+        for err in validation_errors:
+            print(f"  {err}")
+        print("\nSee evaluation/README.md — copy frozen_at from the frozen crawl at label time.")
+        sys.exit(1)
 
     settings = get_settings()
     chroma = load_fca_docs(str(settings.fca_docs_dir))
@@ -127,6 +196,17 @@ def main() -> None:
         }
         Path(args.json_out).write_text(json.dumps(out, indent=2), encoding="utf-8")
         print(f"\nJSON summary written to: {args.json_out}")
+
+    gate_failures = check_accuracy_gates(
+        summary,
+        max_mae=args.max_mae,
+        min_rating_agreement=args.min_rating_agreement,
+    )
+    if gate_failures:
+        print("\nAccuracy gate FAILED:")
+        for msg in gate_failures:
+            print(f"  {msg}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
