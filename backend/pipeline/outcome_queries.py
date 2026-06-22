@@ -48,3 +48,17 @@ OUTCOME_QUERIES: dict[str, str] = {
     "Vulnerability": VULNERABILITY_QUERY,
     "Dark Patterns": DARK_PATTERNS_QUERY,
 }
+
+
+def criterion_query(outcome_name: str, criterion_name: str) -> str:
+    """Build a targeted retrieval query for one checklist criterion."""
+    base = OUTCOME_QUERIES.get(outcome_name, outcome_name)
+    return f"{base} Checklist criterion: {criterion_name}"
+
+
+def criterion_queries_for_outcome(outcome_name: str) -> tuple[str, ...]:
+    """Ten targeted queries — one per criterion ID for an outcome."""
+    from backend.pipeline.scorer import criteria_defs_for_outcome
+
+    defs = criteria_defs_for_outcome(outcome_name)
+    return tuple(criterion_query(outcome_name, d.name) for d in defs)

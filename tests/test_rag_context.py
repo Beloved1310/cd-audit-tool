@@ -74,7 +74,16 @@ class TestBuildFcaPromptContext(unittest.TestCase):
         self.assertEqual(ctx.chunk_count, 2)
         self.assertIn("FG22/5", ctx.fca_sources)
         self.assertIn("FG22/5 excerpt", ctx.fca_context)
+        self.assertEqual(ctx.allowed_citations, ("FG22/5, p.1", "PS22/9, p.2"))
         self.assertEqual(retriever.invoke.call_count, 2)
+
+    def test_empty_retrieval_returns_empty_context(self):
+        retriever = MagicMock()
+        retriever.invoke.return_value = []
+        ctx = build_fca_prompt_context(retriever, "anything")
+        self.assertEqual(ctx.chunk_count, 0)
+        self.assertEqual(ctx.allowed_citations, ())
+        self.assertEqual(ctx.fca_context, "")
 
 
 if __name__ == "__main__":

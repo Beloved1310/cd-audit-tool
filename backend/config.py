@@ -77,6 +77,25 @@ class Settings(BaseSettings):
         alias="RAG_HYBRID_RRF_K",
         description="RRF rank constant (higher = flatter fusion weights).",
     )
+    rag_per_criterion_enabled: bool = Field(
+        default=True,
+        alias="RAG_PER_CRITERION_ENABLED",
+        description="Run one FCA retrieval query per checklist criterion (10 per outcome).",
+    )
+    rag_per_criterion_k: int = Field(
+        default=2,
+        ge=1,
+        le=6,
+        alias="RAG_PER_CRITERION_K",
+        description="Top-k chunks retrieved per criterion query.",
+    )
+    rag_per_criterion_max_chunks: int = Field(
+        default=16,
+        ge=4,
+        le=32,
+        alias="RAG_PER_CRITERION_MAX_CHUNKS",
+        description="Max deduplicated chunks when using per-criterion retrieval.",
+    )
 
     crawl_page_limit: int = Field(default=15, ge=1, le=100, alias="CRAWL_PAGE_LIMIT")
     max_page_chars: int = Field(default=40_000, ge=1_000, le=500_000, alias="MAX_PAGE_CHARS")

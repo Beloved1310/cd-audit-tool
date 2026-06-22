@@ -17,6 +17,20 @@ class FcaPromptContext:
     fca_sources: str
     fca_context: str
     chunk_count: int
+    allowed_citations: tuple[str, ...] = ()
+
+
+_EMPTY_SOURCES = "(no verified FCA sources — do not fabricate citations)"
+
+
+def empty_fca_prompt_context() -> FcaPromptContext:
+    """Prompt context when retrieval returns no chunks (ablation / empty index)."""
+    return FcaPromptContext(
+        fca_sources=_EMPTY_SOURCES,
+        fca_context="",
+        chunk_count=0,
+        allowed_citations=(),
+    )
 
 
 def build_fca_prompt_context(
@@ -42,6 +56,9 @@ def build_fca_prompt_context(
         raise ValueError("build_fca_prompt_context requires at least one query")
 
     docs = merge_retrieved_docs(retriever, *queries, k_each=k, max_docs=cap)
+    if not docs:
+        return empty_fca_prompt_context()
+
     sources = get_sources_from_docs(docs)
     return FcaPromptContext(
         fca_sources=format_fca_sources_numbered(sources),
@@ -50,4 +67,5 @@ def build_fca_prompt_context(
             char_limit,
         ),
         chunk_count=len(docs),
+        allowed_citations=tuple(sources),
     )

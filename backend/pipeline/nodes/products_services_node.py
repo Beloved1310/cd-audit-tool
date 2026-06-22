@@ -7,23 +7,15 @@ import logging
 
 from backend.observability import stage_timer
 from backend.pipeline.content_builder import build_crawl_markdown
-from backend.pipeline.rag_context import build_fca_prompt_context
-from backend.pipeline.llm_errors import friendly_eval_error
 from backend.pipeline.groq_llm import chat_groq, invoke_groq
+from backend.pipeline.llm_errors import friendly_eval_error
+from backend.pipeline.outcome_rag import finalize_outcome_score, retrieve_fca_for_outcome
 from backend.pipeline.prompt_loader import load_prompt_text
-from backend.pipeline.scorer import (
-    PRODUCTS_SERVICES_CRITERIA,
-    confidence_level,
-    confidence_note,
-    format_criteria_for_prompt,
-    normalize_outcome_criteria,
-)
+from backend.pipeline.scorer import PRODUCTS_SERVICES_CRITERIA, format_criteria_for_prompt
 from backend.pipeline.state import AuditState
 from backend.security.prompt_injection import sanitise_website_content
 from backend.schemas.audit import ConfidenceLevel, OutcomeScore, RAGRating
 from backend.schemas.llm_io import OutcomeGroqOutput, outcome_from_groq_output
-
-from backend.pipeline.outcome_queries import PRODUCTS_SERVICES_QUERY
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +46,7 @@ def products_services_node(state: AuditState) -> dict:
     with stage_timer("products_services_prepare"):
         website_content = sanitise_website_content(build_crawl_markdown(cr, max_chars=10_000))
     with stage_timer("products_services_retrieve"):
-        fca = build_fca_prompt_context(retriever, PRODUCTS_SERVICES_QUERY)
+        fca = retrieve_fca_for_outcome(retriever, _OUTCOME_NAME)
 
     template = load_prompt_text("products_services.txt")
     output_schema = json.dumps(
@@ -77,30 +69,17 @@ def products_services_node(state: AuditState) -> dict:
         if not isinstance(raw, OutcomeGroqOutput):
             raw = OutcomeGroqOutput.model_validate(raw)
         result = outcome_from_groq_output(raw)
-        result = result.model_copy(
-            update={
-                "criteria_scores": normalize_outcome_criteria(
-                    result.criteria_scores,
-                    PRODUCTS_SERVICES_CRITERIA,
-                ),
-            },
-        )
     except Exception as e:  # noqa: BLE001
         logger.exception("Products & Services structured output failed")
         result = _failed_outcome(e)
     else:
-        conf = confidence_level(len(cr.pages), cr.total_words)
-        note = confidence_note(len(cr.pages), cr.total_words)
-        score = sum(c.awarded_points for c in result.criteria_scores)
-        result = result.model_copy(
-            update={
-                "outcome_name": _OUTCOME_NAME,
-                "score": score,
-                "confidence": conf,
-                "confidence_note": note,
-                "assessment_scope": "public_website_only",
-                "scope_note": _SCOPE_NOTE,
-            },
+        result = finalize_outcome_score(
+            result,
+            outcome_name=_OUTCOME_NAME,
+            criteria_defs=PRODUCTS_SERVICES_CRITERIA,
+            fca=fca,
+            crawl=cr,
+            scope_note=_SCOPE_NOTE,
         )
 
     return {"products_services_score": result}

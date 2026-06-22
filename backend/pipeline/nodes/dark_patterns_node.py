@@ -11,6 +11,7 @@ from backend.observability import stage_timer
 from backend.pipeline.content_builder import build_crawl_markdown
 from backend.pipeline.groq_llm import chat_groq, invoke_groq
 from backend.pipeline.prompt_loader import load_prompt_text
+from backend.pipeline.citation_grounding import ground_dark_patterns
 from backend.pipeline.rag_context import build_fca_prompt_context
 from backend.pipeline.state import AuditState
 from backend.schemas.audit import DarkPattern
@@ -54,7 +55,7 @@ def dark_patterns_node(state: AuditState) -> dict:
             result = invoke_groq(structured, prompt)
         if not isinstance(result, DarkPatternDetectionResult):
             result = DarkPatternDetectionResult.model_validate(result)
-        patterns = list(result.patterns_found)
+        patterns = ground_dark_patterns(list(result.patterns_found), fca.allowed_citations)
     except Exception as e:  # noqa: BLE001
         logger.exception("Dark pattern detection failed")
         patterns = []

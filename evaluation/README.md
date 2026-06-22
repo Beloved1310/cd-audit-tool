@@ -63,6 +63,16 @@ Exit code **1** if thresholds are not met.
 
 ---
 
+## RAG ablation (is retrieval load-bearing?)
+
+```bash
+python scripts/run_rag_ablation.py --site example_retail_bank --fail-if-decorative
+```
+
+Runs the same frozen crawl twice: with FCA retrieval and with a null retriever. Flags **decorative RAG** when outcome scores and citation rates barely change.
+
+---
+
 ## Files
 
 | Path | Purpose |

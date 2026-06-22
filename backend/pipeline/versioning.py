@@ -27,7 +27,7 @@ def compute_pipeline_version() -> str:
     scorer_path = root / "pipeline" / "scorer.py"
 
     settings = get_settings()
-    parts: list[bytes] = [b"cd-audit-pipeline:v4"]
+    parts: list[bytes] = [b"cd-audit-pipeline:v5"]
 
     if scorer_path.is_file():
         parts.append(scorer_path.read_bytes())
@@ -42,7 +42,11 @@ def compute_pipeline_version() -> str:
         f"rag:k={settings.rag_retrieval_k},chunks={settings.rag_max_chunks},"
         f"chars={settings.rag_context_max_chars},"
         f"hybrid={int(settings.rag_hybrid_enabled)}:"
-        f"cand={settings.rag_hybrid_candidate_k},rrf={settings.rag_hybrid_rrf_k}".encode("utf-8"),
+        f"cand={settings.rag_hybrid_candidate_k},rrf={settings.rag_hybrid_rrf_k},"
+        f"per_crit={int(settings.rag_per_criterion_enabled)}:"
+        f"pk={settings.rag_per_criterion_k},pmax={settings.rag_per_criterion_max_chunks}".encode(
+            "utf-8",
+        ),
     )
 
     digest = _hash_bytes(parts)
