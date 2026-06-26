@@ -7,7 +7,7 @@ from typing import Any
 from backend.config import get_settings
 from backend.crawler.site_crawler import CrawlResult
 from backend.pipeline.citation_grounding import apply_outcome_citation_grounding
-from backend.pipeline.outcome_queries import OUTCOME_QUERIES, criterion_queries_for_outcome
+from backend.pipeline.outcome_queries import retrieval_queries_for_outcome
 from backend.pipeline.rag_context import FcaPromptContext, build_fca_prompt_context
 from backend.pipeline.scorer import (
     CriterionDef,
@@ -19,20 +19,17 @@ from backend.schemas.audit import ConfidenceLevel, OutcomeScore
 
 
 def retrieve_fca_for_outcome(retriever: Any, outcome_name: str) -> FcaPromptContext:
-    """Retrieve FCA chunks — per-criterion queries when enabled, else one outcome query."""
+    """Retrieve FCA chunks — multi-query per criterion/aspect when enabled, else one outcome query."""
     settings = get_settings()
-    if settings.rag_per_criterion_enabled:
-        queries = criterion_queries_for_outcome(outcome_name)
+    queries = retrieval_queries_for_outcome(outcome_name)
+    if len(queries) > 1:
         return build_fca_prompt_context(
             retriever,
             *queries,
             k_per_query=settings.rag_per_criterion_k,
             max_chunks=settings.rag_per_criterion_max_chunks,
         )
-    query = OUTCOME_QUERIES.get(outcome_name)
-    if not query:
-        raise ValueError(f"No FCA retrieval query for outcome: {outcome_name!r}")
-    return build_fca_prompt_context(retriever, query)
+    return build_fca_prompt_context(retriever, queries[0])
 
 
 def finalize_outcome_score(

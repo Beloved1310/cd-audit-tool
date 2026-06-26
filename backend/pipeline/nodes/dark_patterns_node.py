@@ -12,13 +12,13 @@ from backend.pipeline.content_builder import build_crawl_markdown
 from backend.pipeline.groq_llm import chat_groq, invoke_groq
 from backend.pipeline.prompt_loader import load_prompt_text
 from backend.pipeline.citation_grounding import ground_dark_patterns
-from backend.pipeline.rag_context import build_fca_prompt_context
+from backend.pipeline.outcome_rag import retrieve_fca_for_outcome
 from backend.pipeline.state import AuditState
 from backend.schemas.audit import DarkPattern
 
-from backend.pipeline.outcome_queries import DARK_PATTERNS_QUERY
-
 logger = logging.getLogger(__name__)
+
+_OUTCOME_NAME = "Dark Patterns"
 
 
 class DarkPatternDetectionResult(BaseModel):
@@ -35,7 +35,7 @@ def dark_patterns_node(state: AuditState) -> dict:
         content = build_crawl_markdown(cr, max_chars=14_000)
 
     with stage_timer("dark_patterns_retrieve"):
-        fca = build_fca_prompt_context(retriever, DARK_PATTERNS_QUERY)
+        fca = retrieve_fca_for_outcome(retriever, _OUTCOME_NAME)
 
     llm = chat_groq()
     structured = llm.with_structured_output(DarkPatternDetectionResult)
