@@ -80,6 +80,11 @@ export function CriteriaBreakdown({ criteria }: { criteria: CriterionScore[] }) 
                           {c.page_url}
                         </a>
                       ) : null}
+                      {c.fca_reference ? (
+                        <p className="mt-1 text-xs text-zinc-500">
+                          FCA: {c.fca_reference}
+                        </p>
+                      ) : null}
                     </td>
                   </tr>
                 ) : null}

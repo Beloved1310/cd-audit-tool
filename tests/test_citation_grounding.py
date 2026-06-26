@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from backend.pipeline.citation_grounding import (
     apply_outcome_citation_grounding,
     citation_is_grounded,
+    ground_criteria_scores,
     ground_dark_patterns,
     ground_vulnerability_gaps,
     parse_numbered_fca_sources,
@@ -36,6 +37,105 @@ class TestCitationGrounding(unittest.TestCase):
         self.assertTrue(citation_is_grounded("FG22/5, p.53", allowed))
         self.assertTrue(citation_is_grounded("FG22/5", allowed))
         self.assertFalse(citation_is_grounded("FG21/1, p.1", allowed))
+
+    def test_revokes_ungrounded_criterion_points(self):
+        criteria = [
+            CriterionScore(
+                criterion_id=1,
+                criterion_name="c1",
+                max_points=1,
+                awarded_points=1,
+                met=True,
+                evidence="visible on page",
+                page_url="https://x.test/",
+                fca_reference="Invented Doc, p.1",
+            ),
+            CriterionScore(
+                criterion_id=2,
+                criterion_name="c2",
+                max_points=1,
+                awarded_points=1,
+                met=True,
+                evidence="ok",
+                page_url="https://x.test/",
+                fca_reference="FG22/5, p.12",
+            ),
+        ]
+        grounded, revoked = ground_criteria_scores(criteria, ["FG22/5, p.12"])
+        self.assertEqual(revoked, 1)
+        self.assertEqual(grounded[0].awarded_points, 0)
+        self.assertFalse(grounded[0].met)
+        self.assertEqual(grounded[1].awarded_points, 1)
+
+    def test_revokes_awarded_points_when_no_retrieved_sources(self):
+        criteria = [
+            CriterionScore(
+                criterion_id=1,
+                criterion_name="c1",
+                max_points=1,
+                awarded_points=1,
+                met=True,
+                evidence="visible",
+                page_url="https://x.test/",
+                fca_reference="FG22/5, p.12",
+            ),
+        ]
+        grounded, revoked = ground_criteria_scores(criteria, [])
+        self.assertEqual(revoked, 1)
+        self.assertEqual(grounded[0].awarded_points, 0)
+
+    def test_revokes_awarded_points_when_fca_reference_missing(self):
+        criteria = [
+            CriterionScore(
+                criterion_id=1,
+                criterion_name="c1",
+                max_points=1,
+                awarded_points=1,
+                met=True,
+                evidence="visible",
+                page_url="https://x.test/",
+                fca_reference="",
+            ),
+        ]
+        grounded, revoked = ground_criteria_scores(criteria, ["FG22/5, p.12"])
+        self.assertEqual(revoked, 1)
+        self.assertEqual(grounded[0].awarded_points, 0)
+
+    def test_apply_outcome_grounds_criteria_and_updates_score(self):
+        outcome = OutcomeScore(
+            outcome_name="Price & Value",
+            rating=RAGRating.GREEN,
+            score=2,
+            confidence=ConfidenceLevel.HIGH,
+            summary="s",
+            criteria_scores=[
+                CriterionScore(
+                    criterion_id=1,
+                    criterion_name="c1",
+                    max_points=1,
+                    awarded_points=1,
+                    met=True,
+                    evidence="e",
+                    page_url="https://x.test/",
+                    fca_reference="FG22/5, p.12",
+                ),
+                CriterionScore(
+                    criterion_id=2,
+                    criterion_name="c2",
+                    max_points=1,
+                    awarded_points=1,
+                    met=True,
+                    evidence="e",
+                    page_url="https://x.test/",
+                    fca_reference="Fake",
+                ),
+            ],
+            findings=[],
+        )
+        grounded, note = apply_outcome_citation_grounding(outcome, ["FG22/5, p.12"])
+        self.assertEqual(grounded.score, 1)
+        self.assertEqual(sum(c.awarded_points for c in grounded.criteria_scores), 1)
+        self.assertIn("revoked", note.lower())
 
     def test_removes_ungrounded_findings_and_downgrades(self):
         outcome = OutcomeScore(

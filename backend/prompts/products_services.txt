@@ -36,6 +36,7 @@ Step 2 — For every criterion (IDs 1–10), in order:
   - Set max_points to 1 and awarded_points to 0 or 1 only
   - Set met to true only when awarded_points equals max_points
   - Cite which fca_source supports your judgment (from the list above)
+  - Set fca_reference to that source string on each criteria_scores row
   - Record the EXACT verbatim text from the website in evidence
   - Record the page URL in page_url
   - If no evidence: awarded_points = 0, evidence =

@@ -54,6 +54,8 @@ def compute_report_quality_metrics(
     crit_partial_with_proof = 0
     crit_partial_total = 0
     crit_any_proof = 0
+    crit_awarded_total = 0
+    crit_awarded_fca = 0
 
     findings_total = 0
     findings_evidence = 0
@@ -81,6 +83,10 @@ def compute_report_quality_metrics(
                 crit_partial_total += 1
                 if has_proof:
                     crit_partial_with_proof += 1
+            if c.awarded_points > 0:
+                crit_awarded_total += 1
+                if (c.fca_reference or "").strip():
+                    crit_awarded_fca += 1
 
         for f in o.findings:
             findings_total += 1
@@ -99,6 +105,7 @@ def compute_report_quality_metrics(
         crit_partial_with_proof / crit_partial_total if crit_partial_total else 1.0
     )
     rate_any = crit_any_proof / criteria_total if criteria_total else 1.0
+    rate_crit_fca = crit_awarded_fca / crit_awarded_total if crit_awarded_total else 1.0
     rate_f_ev = findings_evidence / findings_total if findings_total else 1.0
     rate_f_fca = findings_fca / findings_total if findings_total else 1.0
     rate_dp = dp_evidence / dp_total if dp_total else 1.0
@@ -126,6 +133,7 @@ def compute_report_quality_metrics(
         criteria_total=criteria_total,
         criteria_with_evidence_when_partial_or_fail=round(rate_partial, 4),
         criteria_evidence_any=round(rate_any, 4),
+        criteria_with_fca_reference=round(rate_crit_fca, 4),
         findings_total=findings_total,
         findings_with_verbatim_evidence=round(rate_f_ev, 4),
         findings_with_fca_reference=round(rate_f_fca, 4),

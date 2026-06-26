@@ -29,6 +29,11 @@ class ReportQualityMetrics(BaseModel):
         le=1.0,
         description="Share of all criteria rows with non-empty evidence or page_url.",
     )
+    criteria_with_fca_reference: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="Share of awarded criteria (points > 0) with non-empty fca_reference.",
+    )
 
     findings_total: int = 0
     findings_with_verbatim_evidence: float = Field(

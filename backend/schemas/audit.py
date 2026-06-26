@@ -65,6 +65,10 @@ class CriterionScore(BaseModel):
         default="",
         description="Page URL where evidence was found; empty if none.",
     )
+    fca_reference: str = Field(
+        default="",
+        description="Retrieved FCA source supporting this score; required when awarded_points > 0.",
+    )
 
     @model_validator(mode="after")
     def _points_range_and_met(self) -> Self:

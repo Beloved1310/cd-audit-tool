@@ -8,6 +8,7 @@ from collections.abc import Sequence
 
 from backend.schemas.audit import (
     ConfidenceLevel,
+    CriterionScore,
     DarkPattern,
     Finding,
     OutcomeScore,
@@ -75,40 +76,93 @@ def downgrade_confidence(level: ConfidenceLevel) -> ConfidenceLevel:
     return ConfidenceLevel.LOW
 
 
+_CRITERIA_REVOKE_NOTE = (
+    "Point revoked: fca_reference missing or not in retrieved FCA sources."
+)
+
+
+def ground_criteria_scores(
+    criteria: list[CriterionScore],
+    allowed_citations: Sequence[str],
+) -> tuple[list[CriterionScore], int]:
+    """Revoke awarded points when ``fca_reference`` is missing or not in retrieved sources."""
+    grounded: list[CriterionScore] = []
+    revoked = 0
+    for row in criteria:
+        if row.awarded_points <= 0:
+            grounded.append(row)
+            continue
+        ref = (row.fca_reference or "").strip()
+        if allowed_citations and ref and citation_is_grounded(ref, allowed_citations):
+            grounded.append(row)
+            continue
+        revoked += 1
+        logger.warning(
+            "Revoked criterion %s for ungrounded fca_reference=%r",
+            row.criterion_id,
+            row.fca_reference,
+        )
+        evidence = row.evidence
+        if _CRITERIA_REVOKE_NOTE not in evidence:
+            evidence = f"{evidence} [{_CRITERIA_REVOKE_NOTE}]".strip() if evidence else _CRITERIA_REVOKE_NOTE
+        grounded.append(
+            row.model_copy(
+                update={
+                    "awarded_points": 0,
+                    "met": False,
+                    "fca_reference": "",
+                    "evidence": evidence,
+                },
+            ),
+        )
+    return grounded, revoked
+
+
 def apply_outcome_citation_grounding(
     outcome: OutcomeScore,
     allowed_citations: Sequence[str],
 ) -> tuple[OutcomeScore, str]:
-    """Drop findings with ungrounded ``fca_reference``; downgrade confidence when any are removed."""
-    if not outcome.findings:
-        return outcome, ""
+    """Ground checklist rows and findings; downgrade confidence when any citations fail."""
+    criteria, criteria_revoked = ground_criteria_scores(
+        outcome.criteria_scores,
+        allowed_citations,
+    )
+    outcome = outcome.model_copy(update={"criteria_scores": criteria})
 
-    grounded: list[Finding] = []
-    removed = 0
+    grounded_findings: list[Finding] = []
+    findings_removed = 0
     for finding in outcome.findings:
         if citation_is_grounded(finding.fca_reference, allowed_citations):
-            grounded.append(finding)
+            grounded_findings.append(finding)
         else:
-            removed += 1
+            findings_removed += 1
             logger.warning(
                 "Removed ungrounded finding for %s: fca_reference=%r",
                 outcome.outcome_name,
                 finding.fca_reference,
             )
 
-    if removed == 0:
+    notes: list[str] = []
+    if criteria_revoked:
+        notes.append(
+            f"{criteria_revoked} criterion point(s) revoked: fca_reference not in retrieved "
+            f"FCA sources ({len(allowed_citations)} chunk(s) available).",
+        )
+    if findings_removed:
+        notes.append(
+            f"{findings_removed} finding(s) removed: fca_reference not in retrieved FCA sources "
+            f"({len(allowed_citations)} chunk(s) available).",
+        )
+
+    if not notes:
         return outcome, ""
 
-    note = (
-        f"{removed} finding(s) removed: fca_reference not in retrieved FCA sources "
-        f"({len(allowed_citations)} chunk(s) available)."
-    )
-    return outcome.model_copy(
-        update={
-            "findings": grounded,
-            "confidence": downgrade_confidence(outcome.confidence),
-        },
-    ), note
+    updates: dict = {"findings": grounded_findings}
+    if criteria_revoked or findings_removed:
+        updates["confidence"] = downgrade_confidence(outcome.confidence)
+    if criteria_revoked:
+        updates["score"] = sum(c.awarded_points for c in criteria)
+    return outcome.model_copy(update=updates), " ".join(notes)
 
 
 def ground_dark_patterns(
@@ -159,6 +213,11 @@ def count_grounded_citations(report) -> tuple[int, int]:
     total = 0
     cited = 0
     for outcome in report.outcomes:
+        for criterion in outcome.criteria_scores:
+            if criterion.awarded_points > 0:
+                total += 1
+                if (criterion.fca_reference or "").strip():
+                    cited += 1
         for finding in outcome.findings:
             total += 1
             if (finding.fca_reference or "").strip():

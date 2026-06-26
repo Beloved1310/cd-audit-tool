@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import importlib.util
 import unittest
 
 from langchain_core.documents import Document
 
-from backend.ingestion.hybrid_retriever import reciprocal_rank_fusion
+from backend.ingestion.hybrid_retriever import HybridFcaRetriever, reciprocal_rank_fusion
+
+
+def _rank_bm25_available() -> bool:
+    return importlib.util.find_spec("rank_bm25") is not None
 
 
 class TestReciprocalRankFusion(unittest.TestCase):
@@ -33,6 +38,26 @@ class TestReciprocalRankFusion(unittest.TestCase):
 
 def _doc_key(doc: Document) -> str:
     return str(doc.metadata.get("citation"))
+
+
+class TestHybridRetrieverBuild(unittest.TestCase):
+    @unittest.skipUnless(_rank_bm25_available(), "rank-bm25 not installed")
+    def test_build_hybrid_retriever_uses_fusion(self):
+        from backend.config import get_settings
+        from backend.ingestion.fca_loader import get_retriever, load_fca_docs, verify_chroma_populated
+        from backend.ingestion.hybrid_retriever import build_hybrid_retriever
+
+        ok, msg = verify_chroma_populated()
+        if not ok:
+            raise unittest.SkipTest(msg)
+
+        settings = get_settings()
+        chroma = load_fca_docs(str(settings.fca_docs_dir))
+        retriever = build_hybrid_retriever(chroma, k=4)
+        self.assertIsInstance(retriever, HybridFcaRetriever)
+
+        via_loader = get_retriever(chroma, k=4)
+        self.assertIsInstance(via_loader, HybridFcaRetriever)
 
 
 if __name__ == "__main__":

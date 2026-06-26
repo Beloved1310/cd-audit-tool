@@ -24,6 +24,7 @@ export interface CriterionScore {
   met: boolean;
   evidence: string;
   page_url: string;
+  fca_reference?: string;
 }
 
 export interface Finding {
