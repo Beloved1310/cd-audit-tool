@@ -7,7 +7,6 @@ import unittest
 from pathlib import Path
 
 from backend.config import get_settings
-from backend.crawler.site_crawler import CrawlResult
 from backend.evaluation.accuracy import compare_to_ground_truth
 from backend.evaluation.frozen_crawl import load_frozen_crawl, run_pipeline_from_frozen
 from backend.evaluation.ground_truth import load_ground_truth
@@ -35,7 +34,7 @@ class TestAccuracyLiveIntegration(unittest.TestCase):
         chroma = load_fca_docs(str(settings.fca_docs_dir))
         retriever = get_retriever(chroma, k=settings.rag_retrieval_k)
         frozen = load_frozen_crawl(_FROZEN)
-        crawl_result = CrawlResult.model_validate(frozen["crawl_result"])
+        crawl_result = frozen["crawl_result"]
         label = load_ground_truth(_LABEL)
 
         report = run_pipeline_from_frozen(
